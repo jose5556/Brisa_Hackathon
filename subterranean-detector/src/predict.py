@@ -1,11 +1,17 @@
+from pathlib import Path
 import joblib
 import pandas as pd
 
 
-MODEL_PATH = "models/subterranean_rf.joblib"
+MODEL_PATH = Path("models/subterranean_rf.joblib")
 
 
 def predict_subterranean(payload: dict) -> dict:
+    if not MODEL_PATH.exists():
+        raise FileNotFoundError(
+            "Model not found. Run: python src/train_model.py first"
+        )
+
     bundle = joblib.load(MODEL_PATH)
 
     model = bundle["model"]
@@ -41,7 +47,6 @@ def predict_subterranean(payload: dict) -> dict:
         },
     }
 
-
 if __name__ == "__main__":
     sample = {
         "gps_accuracy_mean": 45.0,
@@ -63,4 +68,5 @@ if __name__ == "__main__":
         "stationary_ratio": 0.8,
     }
 
-    print(predict_subterranean(sample))
+    result = predict_subterranean(sample)
+    print(result)
