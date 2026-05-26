@@ -35,7 +35,7 @@ def predict_subterranean(payload: dict) -> dict:
     if subterranean_score >= 0.85:
         classification = "likely_underground"
     elif subterranean_score <= 0.25:
-        classification = "likely_street"
+        classification = "likely_street_level"
     else:
         classification = "uncertain"
 
@@ -66,7 +66,7 @@ if __name__ == "__main__":
         "stationary_ratio": 0.8,
     }
 
-    street_sample = {
+    street_level_sample = {
         "gps_accuracy_mean": 7.0,
         "gps_accuracy_max": 12.0,
         "gps_accuracy_delta": 3.0,
@@ -109,8 +109,8 @@ if __name__ == "__main__":
     print("UNDERGROUND TEST:")
     print(predict_subterranean(underground_sample))
 
-    print("\nSTREET TEST:")
-    print(predict_subterranean(street_sample))
+    print("\nSTREET_LEVEL TEST:")
+    print(predict_subterranean(street_level_sample))
 
     print("\nAMBIGUOUS TEST:")
     print(predict_subterranean(ambiguous_sample))

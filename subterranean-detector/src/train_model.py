@@ -23,6 +23,9 @@ FEATURES = [
     "pressure_delta",
     "pressure_slope",
 
+	"altitude_delta",
+	"vertical_change_abs",
+
     "stationary_ratio",
 ]
 
