@@ -45,6 +45,28 @@ def generate_underground_sample():
         "label": "underground",
     }
 
+def generate_ambiguous_sample():
+    return {
+        "gps_accuracy_mean": np.random.uniform(12, 30),
+        "gps_accuracy_max": np.random.uniform(20, 55),
+        "gps_accuracy_delta": np.random.uniform(8, 25),
+        "gps_lost_ratio": np.random.uniform(0.12, 0.40),
+
+        "wifi_count_mean": np.random.uniform(6, 16),
+        "wifi_count_delta": np.random.uniform(-8, 3),
+        "wifi_rssi_mean": np.random.uniform(-82, -58),
+
+        "ble_count_mean": np.random.uniform(3, 10),
+        "ble_count_delta": np.random.uniform(-6, 2),
+        "ble_rssi_mean": np.random.uniform(-88, -60),
+
+        "pressure_delta": np.random.uniform(0.10, 0.40),
+        "pressure_slope": np.random.uniform(0.01, 0.08),
+
+        "stationary_ratio": np.random.uniform(0.4, 1.0),
+        "label": "ambiguous",
+    }
+
 
 def main():
     samples = []
@@ -54,6 +76,9 @@ def main():
 
     for _ in range(500):
         samples.append(generate_underground_sample())
+
+    for _ in range(500):
+    	samples.append(generate_ambiguous_sample())
 
     df = pd.DataFrame(samples)
     df = df.sample(frac=1, random_state=42)
