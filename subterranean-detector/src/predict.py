@@ -30,21 +30,18 @@ def predict_subterranean(payload: dict) -> dict:
     probabilities_by_class = dict(zip(classes, probabilities))
 
     subterranean_score = float(probabilities_by_class.get("underground", 0.0))
+    subterranean_score = round(subterranean_score, 2)
 
-    if subterranean_score >= 0.75:
+    if subterranean_score >= 0.85:
         classification = "likely_underground"
-    elif subterranean_score >= 0.40:
-        classification = "ambiguous"
-    else:
+    elif subterranean_score <= 0.25:
         classification = "likely_street"
+    else:
+        classification = "uncertain"
 
     return {
         "subterranean_confidence": subterranean_score,
         "classification": classification,
-        "probabilities": {
-            key: float(value)
-            for key, value in probabilities_by_class.items()
-        },
     }
 
 
@@ -115,5 +112,5 @@ if __name__ == "__main__":
     print("\nSTREET TEST:")
     print(predict_subterranean(street_sample))
 
-    print("\nAMBIGUOS TEST:")
+    print("\nAMBIGUOUS TEST:")
     print(predict_subterranean(ambiguous_sample))

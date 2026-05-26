@@ -45,40 +45,64 @@ def generate_underground_sample():
         "label": "underground",
     }
 
-def generate_ambiguous_sample():
+def generate_bad_gps_street_sample():
     return {
-        "gps_accuracy_mean": np.random.uniform(12, 30),
-        "gps_accuracy_max": np.random.uniform(20, 55),
+        "gps_accuracy_mean": np.random.uniform(12, 35),
+        "gps_accuracy_max": np.random.uniform(20, 60),
         "gps_accuracy_delta": np.random.uniform(8, 25),
-        "gps_lost_ratio": np.random.uniform(0.12, 0.40),
+        "gps_lost_ratio": np.random.uniform(0.10, 0.35),
 
-        "wifi_count_mean": np.random.uniform(6, 16),
-        "wifi_count_delta": np.random.uniform(-8, 3),
-        "wifi_rssi_mean": np.random.uniform(-82, -58),
+        "wifi_count_mean": np.random.uniform(8, 25),
+        "wifi_count_delta": np.random.uniform(-5, 5),
+        "wifi_rssi_mean": np.random.uniform(-80, -50),
 
-        "ble_count_mean": np.random.uniform(3, 10),
-        "ble_count_delta": np.random.uniform(-6, 2),
-        "ble_rssi_mean": np.random.uniform(-88, -60),
+        "ble_count_mean": np.random.uniform(3, 12),
+        "ble_count_delta": np.random.uniform(-4, 4),
+        "ble_rssi_mean": np.random.uniform(-85, -55),
 
-        "pressure_delta": np.random.uniform(0.10, 0.40),
-        "pressure_slope": np.random.uniform(0.01, 0.08),
+        "pressure_delta": np.random.uniform(-0.10, 0.20),
+        "pressure_slope": np.random.uniform(-0.03, 0.04),
 
-        "stationary_ratio": np.random.uniform(0.4, 1.0),
-        "label": "ambiguous",
+        "stationary_ratio": np.random.uniform(0.5, 1.0),
+        "label": "street",
     }
 
+def generate_weak_underground_sample():
+    return {
+        "gps_accuracy_mean": np.random.uniform(15, 45),
+        "gps_accuracy_max": np.random.uniform(25, 80),
+        "gps_accuracy_delta": np.random.uniform(10, 40),
+        "gps_lost_ratio": np.random.uniform(0.20, 0.60),
+
+        "wifi_count_mean": np.random.uniform(3, 15),
+        "wifi_count_delta": np.random.uniform(-12, 2),
+        "wifi_rssi_mean": np.random.uniform(-90, -58),
+
+        "ble_count_mean": np.random.uniform(1, 10),
+        "ble_count_delta": np.random.uniform(-8, 2),
+        "ble_rssi_mean": np.random.uniform(-95, -60),
+
+        "pressure_delta": np.random.uniform(0.15, 0.70),
+        "pressure_slope": np.random.uniform(0.02, 0.12),
+
+        "stationary_ratio": np.random.uniform(0.4, 1.0),
+        "label": "underground",
+    }
 
 def main():
     samples = []
 
-    for _ in range(500):
+    for _ in range(400):
         samples.append(generate_street_sample())
 
-    for _ in range(500):
+    for _ in range(250):
+        samples.append(generate_bad_gps_street_sample())
+
+    for _ in range(400):
         samples.append(generate_underground_sample())
 
-    for _ in range(500):
-    	samples.append(generate_ambiguous_sample())
+    for _ in range(250):
+        samples.append(generate_weak_underground_sample())
 
     df = pd.DataFrame(samples)
     df = df.sample(frac=1, random_state=42)
