@@ -47,8 +47,9 @@ def predict_subterranean(payload: dict) -> dict:
         },
     }
 
+
 if __name__ == "__main__":
-    sample = {
+    underground_sample = {
         "gps_accuracy_mean": 45.0,
         "gps_accuracy_max": 100.0,
         "gps_accuracy_delta": 55.0,
@@ -68,5 +69,51 @@ if __name__ == "__main__":
         "stationary_ratio": 0.8,
     }
 
-    result = predict_subterranean(sample)
-    print(result)
+    street_sample = {
+        "gps_accuracy_mean": 7.0,
+        "gps_accuracy_max": 12.0,
+        "gps_accuracy_delta": 3.0,
+        "gps_lost_ratio": 0.05,
+
+        "wifi_count_mean": 18,
+        "wifi_count_delta": 1,
+        "wifi_rssi_mean": -60,
+
+        "ble_count_mean": 8,
+        "ble_count_delta": 0,
+        "ble_rssi_mean": -65,
+
+        "pressure_delta": 0.02,
+        "pressure_slope": 0.01,
+
+        "stationary_ratio": 0.9,
+    }
+
+    ambiguous_sample = {
+        "gps_accuracy_mean": 18.0,
+        "gps_accuracy_max": 35.0,
+        "gps_accuracy_delta": 15.0,
+        "gps_lost_ratio": 0.25,
+
+        "wifi_count_mean": 10,
+        "wifi_count_delta": -5,
+        "wifi_rssi_mean": -72,
+
+        "ble_count_mean": 5,
+        "ble_count_delta": -3,
+        "ble_rssi_mean": -78,
+
+        "pressure_delta": 0.22,
+        "pressure_slope": 0.04,
+
+        "stationary_ratio": 0.7,
+    }
+
+    print("UNDERGROUND TEST:")
+    print(predict_subterranean(underground_sample))
+
+    print("\nSTREET TEST:")
+    print(predict_subterranean(street_sample))
+
+    print("\nAMBIGUOS TEST:")
+    print(predict_subterranean(ambiguous_sample))
