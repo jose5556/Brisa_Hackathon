@@ -51,7 +51,7 @@ class SensorCollector(private val context: Context) {
         }
         override fun onLocationAvailability(availability: LocationAvailability) {
             if (!availability.isLocationAvailable) {
-                window.gpsReadings.add(GpsReading(accuracyMeters = 999f, hasSignal = false))
+                window.gpsReadings.add(GpsReading(accuracyMeters = 999f, altitudeMeters = 0.0, hasSignal = false))
             }
         }
     }
@@ -135,6 +135,7 @@ class SensorCollector(private val context: Context) {
         window.gpsReadings.add(
             GpsReading(
                 accuracyMeters = location.accuracy,
+                altitudeMeters = location.altitude,
                 hasSignal = true
             )
         )

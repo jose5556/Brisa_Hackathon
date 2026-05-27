@@ -32,26 +32,62 @@ class SensorRepository(private val context: Context) {
 
     /** Chama em background (coroutine) com a janela já preenchida. */
     suspend fun processAndSend(window: com.example.viaverde_team5.data.model.SensorWindow) {
+
         _uploadResult.value = UploadResult.Loading
+
         try {
             val deviceId = getDeviceId()
-            val payload: SensorPayload = FeatureExtractor.extract(window, deviceId)
 
-            Log.d(TAG, "Payload pronto: $payload")
+            val payload: SensorPayload =
+                FeatureExtractor.extract(window, deviceId)
 
-            val response = api.sendSensorData(payload)
-            if (response.isSuccessful) {
-                val prediction = response.body()?.prediction
-                Log.d(TAG, "Upload OK – prediction=$prediction")
-                _uploadResult.value = UploadResult.Success(prediction)
-            } else {
-                val err = "HTTP ${response.code()}: ${response.errorBody()?.string()}"
-                Log.e(TAG, err)
-                _uploadResult.value = UploadResult.Error(err)
-            }
+            // ── LOG FORMATADO ─────────────────────────────
+            Log.d(
+                TAG,
+                """
+            ========= SENSOR PAYLOAD =========
+
+            GPS
+            gps_accuracy_mean = ${payload.gpsAccuracyMean}
+            gps_accuracy_max = ${payload.gpsAccuracyMax}
+            gps_accuracy_delta = ${payload.gpsAccuracyDelta}
+            gps_lost_ratio = ${payload.gpsLostRatio}
+
+            WIFI
+            wifi_count_mean = ${payload.wifiCountMean}
+            wifi_count_delta = ${payload.wifiCountDelta}
+            wifi_rssi_mean = ${payload.wifiRssiMean}
+
+            BLE
+            ble_count_mean = ${payload.bleCountMean}
+            ble_count_delta = ${payload.bleCountDelta}
+            ble_rssi_mean = ${payload.bleRssiMean}
+
+            PRESSURE
+            pressure_delta = ${payload.pressureDelta}
+            pressure_slope = ${payload.pressureSlope}
+            
+            ALTITUDE DELTA
+            altitude_delta = ${payload.altitudeDelta}
+            vertical_change_abs = ${payload.verticalChangeAbs}
+
+            MOVEMENT
+            stationary_ratio = ${payload.stationaryRatio}
+
+            ==================================
+            """.trimIndent()
+            )
+
+            // AQUI ENVIAR PARA SERVIDOR / MODELO
+            _uploadResult.value =
+                UploadResult.Success("Payload criado com sucesso")
+
         } catch (e: Exception) {
-            Log.e(TAG, "Erro ao enviar dados: ${e.message}", e)
-            _uploadResult.value = UploadResult.Error(e.message ?: "Erro desconhecido")
+
+            Log.e(TAG, "Erro ao processar dados: ${e.message}", e)
+
+            _uploadResult.value =
+                UploadResult.Error(e.message ?: "Erro desconhecido")
         }
     }
 

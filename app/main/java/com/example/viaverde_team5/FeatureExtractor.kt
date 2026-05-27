@@ -12,8 +12,8 @@ object `FeatureExtractor` {
 
     fun extract(window: SensorWindow, deviceId: String): SensorPayload {
         return SensorPayload(
-            deviceId = deviceId,
-            timestampMs = System.currentTimeMillis(),
+            //deviceId = deviceId,
+            //timestampMs = System.currentTimeMillis(),
 
             // ── GPS ─────────────────────────────────────────────────────────────
             gpsAccuracyMean = window.gpsReadings.meanOf { it.accuracyMeters.toDouble() },
@@ -45,7 +45,11 @@ object `FeatureExtractor` {
             // ── Movimento ────────────────────────────────────────────────────────
             stationaryRatio = stationaryRatio(window.motionSamples),
 
-            label = "unknown"
+            // ── Altitude ─────────────────────────────────────────────────────────
+            altitudeDelta = altitudeDelta(window.gpsReadings),
+            verticalChangeAbs = verticalChangeAbs(window.gpsReadings),
+
+            //label = "unknown"
         )
     }
 
@@ -115,3 +119,18 @@ object `FeatureExtractor` {
         return stationary.toDouble() / samples.size
     }
 }
+
+    private fun altitudeDelta(readings: List<GpsReading>): Double {
+        if (readings.size < 2) return 0.0
+
+        return readings.last().altitudeMeters -
+                readings.first().altitudeMeters
+    }
+
+    private fun verticalChangeAbs(readings: List<GpsReading>): Double {
+        if (readings.size < 2) return 0.0
+
+        return readings.zipWithNext { a, b ->
+            abs(b.altitudeMeters - a.altitudeMeters)
+        }.sum()
+    }

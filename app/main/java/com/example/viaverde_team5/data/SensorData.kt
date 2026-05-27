@@ -26,12 +26,15 @@ data class SensorPayload(
     // Movimento
     @SerializedName("stationary_ratio") val stationaryRatio: Double,
 
+    // Deltas
+    @SerializedName("altitude_delta") val altitudeDelta: Double,
+    @SerializedName("vertical_change_abs") val verticalChangeAbs: Double,
     // Label (pode ser enviado como "unknown" até o servidor classificar)
-    @SerializedName("label") val label: String = "unknown",
+    //@SerializedName("label") val label: String = "unknown",
 
     // Metadados extras (úteis para debug no servidor)
-    @SerializedName("device_id") val deviceId: String = "",
-    @SerializedName("timestamp_ms") val timestampMs: Long = System.currentTimeMillis()
+    //@SerializedName("device_id") val deviceId: String = "",
+    //@SerializedName("timestamp_ms") val timestampMs: Long = System.currentTimeMillis()
 )
 
 /** Janela de amostras brutas coletadas durante o período de observação */
@@ -54,6 +57,7 @@ data class SensorWindow(
 
 data class GpsReading(
     val accuracyMeters: Float,   // getAccuracy()
+    val altitudeMeters: Double,
     val hasSignal: Boolean,      // false quando GPS perdido
     val timestampMs: Long = System.currentTimeMillis()
 )
