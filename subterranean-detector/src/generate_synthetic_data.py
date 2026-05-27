@@ -1,6 +1,33 @@
 import numpy as np
 import pandas as pd
 
+""" 
+gps_accuracy_mean
+gps_accuracy_delta
+gps_lost_ratio
+
+pressure_delta
+pressure_slope
+
+altitude_delta
+altitude_accuracy
+
+speed_mean
+stationary_ratio
+turning_score
+
+wifi_count_delta
+wifi_rssi_mean
+
+ble_count_delta
+ble_rssi_mean
+
+expected_road_elevation_delta
+vertical_residual
+
+label 
+"""
+
 def generate_street_level_sample():
     return {
         "gps_accuracy_mean": np.random.uniform(4, 12),  # average GPS accuracy during the time window; higher value means worse location precision
@@ -19,30 +46,38 @@ def generate_street_level_sample():
         "pressure_delta": np.random.uniform(-0.15, 0.15),   # difference in atmospheric pressure between the end and the start of the window; helps detect
         "pressure_slope": np.random.uniform(-0.03, 0.03),   # pressure trend during the window; indicates gradual upward or downward movement
 
+        "altitude_delta": np.random.uniform(-0.5, 0.5),		
+        "vertical_change_abs": np.random.uniform(0.0, 0.8),
+
         "stationary_ratio": np.random.uniform(0.5, 1.0),    # percentage of the window where the user/car was stationary
         "label": "street_level",                            # manually assigned ground-truth label: street or underground
     }
 
-def generate_underground_sample():
+def generate_hilly_street_level_sample():
     return {
-        "gps_accuracy_mean": np.random.uniform(20, 90),
-        "gps_accuracy_max": np.random.uniform(40, 120),
-        "gps_accuracy_delta": np.random.uniform(15, 80),
-        "gps_lost_ratio": np.random.uniform(0.35, 1.0),
+        "gps_accuracy_mean": np.random.uniform(8, 25),
+        "gps_accuracy_max": np.random.uniform(15, 45),
+        "gps_accuracy_delta": np.random.uniform(4, 18),
+        "gps_lost_ratio": np.random.uniform(0.02, 0.22),
 
-        "wifi_count_mean": np.random.uniform(0, 10),
-        "wifi_count_delta": np.random.uniform(-20, 3),
-        "wifi_rssi_mean": np.random.uniform(-90, -60),
+        "wifi_count_mean": np.random.uniform(10, 28),
+        "wifi_count_delta": np.random.uniform(-4, 4),
+        "wifi_rssi_mean": np.random.uniform(-78, -50),
 
-        "ble_count_mean": np.random.uniform(0, 8),
-        "ble_count_delta": np.random.uniform(-12, 3),
-        "ble_rssi_mean": np.random.uniform(-95, -65),
+        "ble_count_mean": np.random.uniform(3, 14),
+        "ble_count_delta": np.random.uniform(-3, 3),
+        "ble_rssi_mean": np.random.uniform(-85, -55),
 
-        "pressure_delta": np.random.uniform(0.25, 1.5),
-        "pressure_slope": np.random.uniform(0.04, 0.25),
+        # street can go uphill or downhill
+        "pressure_delta": np.random.uniform(-0.8, 0.8),
+        "pressure_slope": np.random.uniform(-0.10, 0.10),
 
-        "stationary_ratio": np.random.uniform(0.4, 1.0),
-        "label": "underground",
+        # vertical change caused by normal city slope
+        "altitude_delta": np.random.uniform(-6.0, 6.0),
+        "vertical_change_abs": np.random.uniform(1.0, 6.0),
+
+        "stationary_ratio": np.random.uniform(0.4, 0.9),
+        "label": "street_level",
     }
 
 def generate_bad_gps_street_level_sample():
@@ -63,8 +98,36 @@ def generate_bad_gps_street_level_sample():
         "pressure_delta": np.random.uniform(-0.10, 0.20),
         "pressure_slope": np.random.uniform(-0.03, 0.04),
 
+        "altitude_delta": np.random.uniform(-1.5, 1.5),
+        "vertical_change_abs": np.random.uniform(0.0, 2.0),
+
         "stationary_ratio": np.random.uniform(0.5, 1.0),
         "label": "street_level",
+    }
+
+def generate_underground_sample():
+    return {
+        "gps_accuracy_mean": np.random.uniform(20, 90),
+        "gps_accuracy_max": np.random.uniform(40, 120),
+        "gps_accuracy_delta": np.random.uniform(15, 80),
+        "gps_lost_ratio": np.random.uniform(0.35, 1.0),
+
+        "wifi_count_mean": np.random.uniform(0, 10),
+        "wifi_count_delta": np.random.uniform(-20, 3),
+        "wifi_rssi_mean": np.random.uniform(-90, -60),
+
+        "ble_count_mean": np.random.uniform(0, 8),
+        "ble_count_delta": np.random.uniform(-12, 3),
+        "ble_rssi_mean": np.random.uniform(-95, -65),
+
+        "pressure_delta": np.random.uniform(0.25, 1.5),
+        "pressure_slope": np.random.uniform(0.04, 0.25),
+
+        "altitude_delta": np.random.uniform(-8.0, -1.5),
+        "vertical_change_abs": np.random.uniform(1.5, 8.0),
+
+        "stationary_ratio": np.random.uniform(0.4, 1.0),
+        "label": "underground",
     }
 
 def generate_weak_underground_sample():
@@ -85,11 +148,14 @@ def generate_weak_underground_sample():
         "pressure_delta": np.random.uniform(0.15, 0.70),
         "pressure_slope": np.random.uniform(0.02, 0.12),
 
+        "altitude_delta": np.random.uniform(-4.0, -0.8),
+        "vertical_change_abs": np.random.uniform(0.8, 4.0),
+
         "stationary_ratio": np.random.uniform(0.4, 1.0),
         "label": "underground",
     }
 
-def generate_elevated_area_sample():
+def generate_above_sample():
     return {
         "gps_accuracy_mean": np.random.uniform(12, 45),
         "gps_accuracy_max": np.random.uniform(25, 80),
@@ -111,26 +177,33 @@ def generate_elevated_area_sample():
         "vertical_change_abs": np.random.uniform(1.5, 8.0),
 
         "stationary_ratio": np.random.uniform(0.4, 1.0),
-        "label": "elevated_area",
+        "label": "above",
     }
 
 def main():
+    import os
+
+    os.makedirs("data", exist_ok=True)
+
     samples = []
 
-    for _ in range(400):
+    for _ in range(350):
         samples.append(generate_street_level_sample())
 
-    for _ in range(250):
+    for _ in range(300):
         samples.append(generate_bad_gps_street_level_sample())
 
-    for _ in range(400):
+    for _ in range(350):
+        samples.append(generate_hilly_street_level_sample())
+
+    for _ in range(350):
         samples.append(generate_underground_sample())
 
     for _ in range(250):
         samples.append(generate_weak_underground_sample())
 
-    for _ in range(400):
-        samples.append(generate_elevated_area_sample())
+    for _ in range(350):
+        samples.append(generate_above_sample())
 
     df = pd.DataFrame(samples)
     df = df.sample(frac=1, random_state=42)

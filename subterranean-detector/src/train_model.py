@@ -5,7 +5,6 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report
 from sklearn.model_selection import train_test_split
 
-
 FEATURES = [
     "gps_accuracy_mean",
     "gps_accuracy_max",
@@ -23,12 +22,11 @@ FEATURES = [
     "pressure_delta",
     "pressure_slope",
 
-	"altitude_delta",
-	"vertical_change_abs",
+    "altitude_delta",
+    "vertical_change_abs",
 
     "stationary_ratio",
 ]
-
 
 def main():
     df = pd.read_csv("data/synthetic_data.csv")
@@ -62,10 +60,10 @@ def main():
             "model": model,
             "features": FEATURES,
         },
-        "models/subterranean_rf.joblib",
+        "models/vertical_context_rf.joblib",
     )
 
-    print("Saved models/subterranean_rf.joblib")
+    print("Saved models/vertical_context_rf.joblib")
 
 
 if __name__ == "__main__":

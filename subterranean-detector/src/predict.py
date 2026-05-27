@@ -2,11 +2,9 @@ from pathlib import Path
 import joblib
 import pandas as pd
 
+MODEL_PATH = Path("models/vertical_context_rf.joblib")
 
-MODEL_PATH = Path("models/subterranean_rf.joblib")
-
-
-def predict_subterranean(payload: dict) -> dict:
+def predict_vertical_context(payload: dict) -> dict:
     if not MODEL_PATH.exists():
         raise FileNotFoundError(
             "Model not found. Run: python src/train_model.py first"
@@ -29,88 +27,176 @@ def predict_subterranean(payload: dict) -> dict:
 
     probabilities_by_class = dict(zip(classes, probabilities))
 
-    subterranean_score = float(probabilities_by_class.get("underground", 0.0))
-    subterranean_score = round(subterranean_score, 2)
+    underground_score = float(probabilities_by_class.get("underground", 0.0))
+    above_score = float(probabilities_by_class.get("above", 0.0))
 
-    if subterranean_score >= 0.85:
-        classification = "likely_underground"
-    elif subterranean_score <= 0.25:
-        classification = "likely_street_level"
-    else:
-        classification = "uncertain"
+    non_street_confidence = underground_score + above_score
+    non_street_confidence = round(non_street_confidence, 2)
+
+    classification = max(
+        probabilities_by_class,
+        key=probabilities_by_class.get
+    )
 
     return {
-        "subterranean_confidence": subterranean_score,
+        "non_street_confidence": non_street_confidence,
         "classification": classification,
     }
 
 
 if __name__ == "__main__":
-    underground_sample = {
-        "gps_accuracy_mean": 45.0,
-        "gps_accuracy_max": 100.0,
-        "gps_accuracy_delta": 55.0,
-        "gps_lost_ratio": 0.75,
+    bad_gps_street_sample = {
+        "gps_accuracy_mean": 24.0,
+        "gps_accuracy_max": 48.0,
+        "gps_accuracy_delta": 18.0,
+        "gps_lost_ratio": 0.22,
 
-        "wifi_count_mean": 4,
-        "wifi_count_delta": -14,
-        "wifi_rssi_mean": -84,
-
-        "ble_count_mean": 2,
-        "ble_count_delta": -7,
-        "ble_rssi_mean": -88,
-
-        "pressure_delta": 0.9,
-        "pressure_slope": 0.12,
-
-        "stationary_ratio": 0.8,
-    }
-
-    street_level_sample = {
-        "gps_accuracy_mean": 7.0,
-        "gps_accuracy_max": 12.0,
-        "gps_accuracy_delta": 3.0,
-        "gps_lost_ratio": 0.05,
-
-        "wifi_count_mean": 18,
+        "wifi_count_mean": 20,
         "wifi_count_delta": 1,
-        "wifi_rssi_mean": -60,
+        "wifi_rssi_mean": -62,
 
-        "ble_count_mean": 8,
-        "ble_count_delta": 0,
-        "ble_rssi_mean": -65,
+        "ble_count_mean": 9,
+        "ble_count_delta": 1,
+        "ble_rssi_mean": -68,
 
-        "pressure_delta": 0.02,
+        "pressure_delta": 0.05,
         "pressure_slope": 0.01,
 
-        "stationary_ratio": 0.9,
+        "altitude_delta": 0.4,
+        "vertical_change_abs": 0.6,
+
+        "stationary_ratio": 0.85,
     }
 
-    ambiguous_sample = {
-        "gps_accuracy_mean": 18.0,
-        "gps_accuracy_max": 35.0,
-        "gps_accuracy_delta": 15.0,
-        "gps_lost_ratio": 0.25,
+    weak_underground_sample = {
+        "gps_accuracy_mean": 26.0,
+        "gps_accuracy_max": 55.0,
+        "gps_accuracy_delta": 22.0,
+        "gps_lost_ratio": 0.32,
+
+        "wifi_count_mean": 9,
+        "wifi_count_delta": -8,
+        "wifi_rssi_mean": -79,
+
+        "ble_count_mean": 4,
+        "ble_count_delta": -5,
+        "ble_rssi_mean": -84,
+
+        "pressure_delta": 0.28,
+        "pressure_slope": 0.05,
+
+        "altitude_delta": -1.2,
+        "vertical_change_abs": 1.3,
+
+        "stationary_ratio": 0.75,
+    }
+
+    weak_above_sample = {
+        "gps_accuracy_mean": 24.0,
+        "gps_accuracy_max": 50.0,
+        "gps_accuracy_delta": 18.0,
+        "gps_lost_ratio": 0.28,
 
         "wifi_count_mean": 10,
-        "wifi_count_delta": -5,
-        "wifi_rssi_mean": -72,
+        "wifi_count_delta": -4,
+        "wifi_rssi_mean": -76,
 
         "ble_count_mean": 5,
         "ble_count_delta": -3,
-        "ble_rssi_mean": -78,
+        "ble_rssi_mean": -80,
 
-        "pressure_delta": 0.22,
-        "pressure_slope": 0.04,
+        "pressure_delta": -0.25,
+        "pressure_slope": -0.04,
+
+        "altitude_delta": 1.1,
+        "vertical_change_abs": 1.2,
+
+        "stationary_ratio": 0.78,
+    }
+
+    hilly_street_sample = {
+        "gps_accuracy_mean": 14.0,
+        "gps_accuracy_max": 25.0,
+        "gps_accuracy_delta": 8.0,
+        "gps_lost_ratio": 0.12,
+
+        "wifi_count_mean": 17,
+        "wifi_count_delta": 0,
+        "wifi_rssi_mean": -65,
+
+        "ble_count_mean": 7,
+        "ble_count_delta": 0,
+        "ble_rssi_mean": -70,
+
+        "pressure_delta": -0.45,
+        "pressure_slope": -0.06,
+
+        "altitude_delta": 3.5,
+        "vertical_change_abs": 3.5,
 
         "stationary_ratio": 0.7,
     }
 
-    print("UNDERGROUND TEST:")
-    print(predict_subterranean(underground_sample))
+    noisy_indoor_ground_floor_sample = {
+        "gps_accuracy_mean": 32.0,
+        "gps_accuracy_max": 70.0,
+        "gps_accuracy_delta": 25.0,
+        "gps_lost_ratio": 0.4,
 
-    print("\nSTREET_LEVEL TEST:")
-    print(predict_subterranean(street_level_sample))
+        "wifi_count_mean": 22,
+        "wifi_count_delta": 3,
+        "wifi_rssi_mean": -58,
 
-    print("\nAMBIGUOUS TEST:")
-    print(predict_subterranean(ambiguous_sample))
+        "ble_count_mean": 11,
+        "ble_count_delta": 2,
+        "ble_rssi_mean": -64,
+
+        "pressure_delta": 0.03,
+        "pressure_slope": 0.0,
+
+        "altitude_delta": 0.1,
+        "vertical_change_abs": 0.3,
+
+        "stationary_ratio": 0.95,
+    }
+
+    confusing_multilevel_sample = {
+        "gps_accuracy_mean": 28.0,
+        "gps_accuracy_max": 60.0,
+        "gps_accuracy_delta": 24.0,
+        "gps_lost_ratio": 0.35,
+
+        "wifi_count_mean": 8,
+        "wifi_count_delta": -5,
+        "wifi_rssi_mean": -78,
+
+        "ble_count_mean": 4,
+        "ble_count_delta": -4,
+        "ble_rssi_mean": -83,
+
+        "pressure_delta": 0.05,
+        "pressure_slope": 0.01,
+
+        "altitude_delta": 0.2,
+        "vertical_change_abs": 2.5,
+
+        "stationary_ratio": 0.8,
+    }
+
+    print("\nBAD GPS STREET TEST:")
+    print(predict_vertical_context(bad_gps_street_sample))
+
+    print("\nWEAK UNDERGROUND TEST:")
+    print(predict_vertical_context(weak_underground_sample))
+
+    print("\nWEAK ABOVE TEST:")
+    print(predict_vertical_context(weak_above_sample))
+
+    print("\nHILLY STREET TEST:")
+    print(predict_vertical_context(hilly_street_sample))
+
+    print("\nNOISY INDOOR GROUND FLOOR TEST:")
+    print(predict_vertical_context(noisy_indoor_ground_floor_sample))
+
+    print("\nCONFUSING MULTILEVEL TEST:")
+    print(predict_vertical_context(confusing_multilevel_sample))
