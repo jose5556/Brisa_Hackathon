@@ -118,19 +118,36 @@ object `FeatureExtractor` {
         }
         return stationary.toDouble() / samples.size
     }
-}
 
+    /** Leituras GPS minimamente fiáveis para altitude */
+    private fun validAltitudeReadings(readings: List<GpsReading>): List<GpsReading> {
+        return readings.filter {
+            it.hasSignal && it.accuracyMeters < 75f
+        }
+    }
+
+    /** Diferença entre a última e a primeira altitude válida */
     private fun altitudeDelta(readings: List<GpsReading>): Double {
-        if (readings.size < 2) return 0.0
+        val valid = validAltitudeReadings(readings)
 
-        return readings.last().altitudeMeters -
-                readings.first().altitudeMeters
+        if (valid.size < 2) return 0.0
+
+        return valid.last().altitudeMeters -
+                valid.first().altitudeMeters
     }
 
+    /**
+     * Variação vertical aproximada na janela.
+     * Usa max - min em vez de somar todos os saltos, porque a altitude GPS é ruidosa.
+     */
     private fun verticalChangeAbs(readings: List<GpsReading>): Double {
-        if (readings.size < 2) return 0.0
+        val valid = validAltitudeReadings(readings)
 
-        return readings.zipWithNext { a, b ->
-            abs(b.altitudeMeters - a.altitudeMeters)
-        }.sum()
+        if (valid.size < 2) return 0.0
+
+        val maxAltitude = valid.maxOf { it.altitudeMeters }
+        val minAltitude = valid.minOf { it.altitudeMeters }
+
+        return abs(maxAltitude - minAltitude)
     }
+}
