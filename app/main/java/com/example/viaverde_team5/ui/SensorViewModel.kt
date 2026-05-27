@@ -12,7 +12,7 @@ import kotlinx.coroutines.launch
 import android.util.Log
 
 /** Duração da janela de observação em milissegundos (30 s por defeito) */
-private const val WINDOW_DURATION_MS = 30_000L
+private const val WINDOW_DURATION_MS = 10_000L
 
 class SensorViewModel(application: Application) : AndroidViewModel(application) {
 

@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.StateFlow
 
 private const val TAG = "SensorRepository"
 
+
 sealed class UploadResult {
     object Idle : UploadResult()
     object Loading : UploadResult()
@@ -30,6 +31,49 @@ class SensorRepository(private val context: Context) {
     private val _uploadResult = MutableStateFlow<UploadResult>(UploadResult.Idle)
     val uploadResult: StateFlow<UploadResult> = _uploadResult
 
+    /**
+     * Guarda o payload numa linha CSV no ficheiro data.txt (armazenamento interno da app).
+     * Cada chamada acrescenta uma linha — o ficheiro nunca é apagado automaticamente.
+     *
+     * Localização no dispositivo:
+     *   /data/data/com.example.viaverde_team5/files/data.txt
+     *   (acessível via Android Studio > Device Explorer, ou adb pull)
+     */
+
+    private fun savePayloadToCsv(payload: SensorPayload) {
+        try {
+            val file = java.io.File(context.filesDir, "data.txt")
+
+            // Cabeçalho na primeira vez
+            if (!file.exists()) {
+                file.writeText(
+                    "gps_accuracy_mean,gps_accuracy_max,gps_accuracy_delta,gps_lost_ratio," +
+                            "wifi_count_mean,wifi_count_delta,wifi_rssi_mean," +
+                            "ble_count_mean,ble_count_delta,ble_rssi_mean," +
+                            "pressure_delta,pressure_slope," +
+                            "stationary_ratio," +
+                            "altitude_delta,vertical_change_abs\n"
+                )
+            }
+
+            val line =
+                "${payload.gpsAccuracyMean},${payload.gpsAccuracyMax}," +
+                        "${payload.gpsAccuracyDelta},${payload.gpsLostRatio}," +
+                        "${payload.wifiCountMean},${payload.wifiCountDelta},${payload.wifiRssiMean}," +
+                        "${payload.bleCountMean},${payload.bleCountDelta},${payload.bleRssiMean}," +
+                        "${payload.pressureDelta},${payload.pressureSlope}," +
+                        "${payload.stationaryRatio}," +
+                        "${payload.altitudeDelta},${payload.verticalChangeAbs}\n"
+
+            file.appendText(line)
+
+            Log.d(TAG, "CSV guardado: ${file.absolutePath}")
+
+        } catch (e: Exception) {
+            Log.e(TAG, "Erro ao guardar CSV: ${e.message}", e)
+        }
+    }
+
     /** Chama em background (coroutine) com a janela já preenchida. */
     suspend fun processAndSend(window: com.example.viaverde_team5.data.model.SensorWindow) {
 
@@ -40,6 +84,8 @@ class SensorRepository(private val context: Context) {
 
             val payload: SensorPayload =
                 FeatureExtractor.extract(window, deviceId)
+
+            savePayloadToCsv(payload)
 
             // ── LOG FORMATADO ─────────────────────────────
             Log.d(
