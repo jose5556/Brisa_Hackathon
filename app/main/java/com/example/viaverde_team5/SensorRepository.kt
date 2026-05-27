@@ -79,8 +79,45 @@ class SensorRepository(private val context: Context) {
             )
 
             // AQUI ENVIAR PARA SERVIDOR / MODELO
-            _uploadResult.value =
-                UploadResult.Success("Payload criado com sucesso")
+            val response = api.predictVerticalContext(payload)
+
+            if (response.isSuccessful) {
+                val body = response.body()
+
+                if (body != null) {
+                    val predictionText =
+                        "classification = ${body.classification}\n" +
+                        "non_street_confidence = ${body.nonStreetConfidence}"
+
+                    Log.d(
+                        TAG,
+                        """
+                    ========= MODEL RESPONSE =========
+                    classification = ${body.classification}
+                    non_street_confidence = ${body.nonStreetConfidence}
+                    ==================================
+                    """.trimIndent()
+                    )
+
+                    _uploadResult.value =
+                        UploadResult.Success(predictionText)
+                } else {
+                    _uploadResult.value =
+                        UploadResult.Error("Resposta vazia do servidor")
+                }
+            } else {
+                val errorBody = response.errorBody()?.string()
+
+                Log.e(
+                    TAG,
+                    "Erro do servidor: ${response.code()} - $errorBody"
+                )
+
+                _uploadResult.value =
+                    UploadResult.Error(
+                        "Erro do servidor: ${response.code()}"
+                    )
+            }
 
         } catch (e: Exception) {
 

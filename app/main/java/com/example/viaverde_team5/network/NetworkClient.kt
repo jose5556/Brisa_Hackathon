@@ -2,6 +2,7 @@ package com.example.viaverde_team5.data.network
 
 import com.example.viaverde_team5.data.model.SensorPayload
 import com.google.gson.GsonBuilder
+import com.google.gson.annotations.SerializedName
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Response
@@ -11,28 +12,30 @@ import retrofit2.http.Body
 import retrofit2.http.POST
 import java.util.concurrent.TimeUnit
 
-// ── Constantes de configuração ────────────────────────────────────────────────
-// Troca BASE_URL pelo endpoint real quando tiveres o servidor configurado.
-private const val BASE_URL = "https://your-server.example.com/"
+// Emulator Android:
+// private const val BASE_URL = "http://10.0.2.2:8000/"
 
-// ── Interface Retrofit ────────────────────────────────────────────────────────
+// Physical phone on same Wi-Fi as your PC:
+private const val BASE_URL = "http://10.21.220.182:8000/"
+
+/** Envia uma janela de features já calculadas. */
 interface SensorApiService {
-
-    /** Envia uma janela de features já calculadas. */
-    @POST("api/sensor-data")
-    suspend fun sendSensorData(@Body payload: SensorPayload): Response<ApiResponse>
+    @POST("predict")
+    suspend fun predictVerticalContext(
+        @Body payload: SensorPayload
+    ): Response<PredictionResponse>
 }
 
-/** Resposta genérica do servidor */
-data class ApiResponse(
-    val status: String,
-    val message: String? = null,
-    val prediction: String? = null   // caso o servidor devolva a classificação
+// ── Singleton Retrofit ─────────────────────────────────
+data class PredictionResponse(
+    @SerializedName("non_street_confidence")
+    val nonStreetConfidence: Double,
+
+    @SerializedName("classification")
+    val classification: String
 )
 
-// ── Singleton Retrofit ────────────────────────────────────────────────────────
 object RetrofitClient {
-
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BODY
     }
