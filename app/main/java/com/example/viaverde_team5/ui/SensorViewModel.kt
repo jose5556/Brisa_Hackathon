@@ -9,6 +9,7 @@ import com.example.viaverde_team5.sensor.SensorCollector
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import android.util.Log
 
 /** Duração da janela de observação em milissegundos (30 s por defeito) */
 private const val WINDOW_DURATION_MS = 30_000L
@@ -27,16 +28,27 @@ class SensorViewModel(application: Application) : AndroidViewModel(application) 
      * Inicia uma janela de recolha, depois envia os dados.
      * Pode ser chamado directamente por um botão na UI.
      */
+
     fun collectAndSend() {
         if (isCollecting) return
         isCollecting = true
 
         viewModelScope.launch {
-            collector.startWindow()
-            delay(WINDOW_DURATION_MS)
-            val window = collector.stopAndGetWindow()
-            repository.processAndSend(window)
-            isCollecting = false
+            try {
+                collector.startWindow()
+
+                delay(WINDOW_DURATION_MS)
+
+                val window = collector.stopAndGetWindow()
+
+                // ── AGORA AQUI É O IMPORTANTE ──
+                repository.processAndSend(window)
+
+            } catch (e: Exception) {
+                Log.e("SensorViewModel", "Erro na recolha: ${e.message}", e)
+            } finally {
+                isCollecting = false
+            }
         }
     }
 
