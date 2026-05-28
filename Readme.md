@@ -28,7 +28,7 @@ Uma parte importante deste segundo modelo seria o uso de dados reais de mapa e d
 
 ## Conclusão
 
-Assim, o pipeline final seria:
+Em suma, a pipeline final seria:
 
 1. A aplicação recolhe dados dos sensores do telemóvel.
 2. O primeiro modelo estima o contexto vertical do carro.
