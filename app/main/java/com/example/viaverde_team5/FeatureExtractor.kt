@@ -11,43 +11,67 @@ import kotlin.math.sqrt
 object `FeatureExtractor` {
 
     fun extract(window: SensorWindow, deviceId: String): SensorPayload {
+
+        val validGpsReadings = window.gpsReadings.filter {
+            it.accuracyMeters in 0.0..100.0
+        }
+
         return SensorPayload(
             //deviceId = deviceId,
             //timestampMs = System.currentTimeMillis(),
 
             // ── GPS ─────────────────────────────────────────────────────────────
-            gpsAccuracyMean = window.gpsReadings.meanOf { it.accuracyMeters.toDouble() },
-            gpsAccuracyMax  = window.gpsReadings.maxOfOrNull { it.accuracyMeters.toDouble() } ?: 0.0,
-            gpsAccuracyDelta = gpsAccuracyDelta(window.gpsReadings),
-            gpsLostRatio    = window.gpsReadings.run {
-                if (isEmpty()) 1.0
-                else count { !it.hasSignal }.toDouble() / size
+            gpsAccuracyMean = validGpsReadings.meanOf {
+                it.accuracyMeters.toDouble()
             },
 
-            // ── Wi-Fi ────────────────────────────────────────────────────────────
-            wifiCountMean  = window.wifiScans.meanOf { it.apCount.toDouble() },
+            gpsAccuracyMax = validGpsReadings.maxOfOrNull {
+                it.accuracyMeters.toDouble()
+            } ?: 0.0,
+
+            gpsAccuracyDelta = gpsAccuracyDelta(validGpsReadings),
+
+            gpsLostRatio = window.gpsReadings.run {
+                if (isEmpty()) 1.0
+                else count {
+                    !it.hasSignal || it.accuracyMeters !in 0.0..100.0
+                }.toDouble() / size
+            },
+
+            // ── Wi-Fi ───────────────────────────────────────────────────────────
+            wifiCountMean = window.wifiScans.meanOf { it.apCount.toDouble() },
+
             wifiCountDelta = wifiCountDelta(window.wifiScans),
-            wifiRssiMean   = window.wifiScans
-                .flatMap { it.rssiValues }
-                .let { rssiList -> if (rssiList.isEmpty()) 0.0 else rssiList.average() },
 
-            // ── BLE ──────────────────────────────────────────────────────────────
-            bleCountMean  = window.bleScans.meanOf { it.deviceCount.toDouble() },
+            wifiRssiMean = window.wifiScans
+                .flatMap { it.rssiValues }
+                .let { rssiList ->
+                    if (rssiList.isEmpty()) 0.0 else rssiList.average()
+                },
+
+            // ── BLE ─────────────────────────────────────────────────────────────
+            bleCountMean = window.bleScans.meanOf { it.deviceCount.toDouble() },
+
             bleCountDelta = bleCountDelta(window.bleScans),
-            bleRssiMean   = window.bleScans
-                .flatMap { it.rssiValues }
-                .let { rssiList -> if (rssiList.isEmpty()) 0.0 else rssiList.average() },
 
-            // ── Pressão ──────────────────────────────────────────────────────────
+            bleRssiMean = window.bleScans
+                .flatMap { it.rssiValues }
+                .let { rssiList ->
+                    if (rssiList.isEmpty()) 0.0 else rssiList.average()
+                },
+
+            // ── Pressão ─────────────────────────────────────────────────────────
             pressureDelta = pressureDelta(window.pressureReadings),
+
             pressureSlope = pressureSlope(window.pressureReadings),
 
-            // ── Movimento ────────────────────────────────────────────────────────
+            // ── Movimento ───────────────────────────────────────────────────────
             stationaryRatio = stationaryRatio(window.motionSamples),
 
-            // ── Altitude ─────────────────────────────────────────────────────────
-            altitudeDelta = altitudeDelta(window.gpsReadings),
-            verticalChangeAbs = verticalChangeAbs(window.gpsReadings),
+            // ── Altitude ────────────────────────────────────────────────────────
+            altitudeDelta = altitudeDelta(validGpsReadings),
+
+            verticalChangeAbs = verticalChangeAbs(validGpsReadings),
 
             //label = "unknown"
         )
@@ -60,9 +84,15 @@ object `FeatureExtractor` {
 
     /** Diferença entre a maior e a menor leitura de acurácia na janela */
     private fun gpsAccuracyDelta(readings: List<GpsReading>): Double {
-        if (readings.size < 2) return 0.0
-        val max = readings.maxOf { it.accuracyMeters }
-        val min = readings.minOf { it.accuracyMeters }
+        val validReadings = readings.filter {
+            it.accuracyMeters in 0.0..100.0
+        }
+
+        if (validReadings.size < 2) return 0.0
+
+        val max = validReadings.maxOf { it.accuracyMeters }
+        val min = validReadings.minOf { it.accuracyMeters }
+
         return (max - min).toDouble()
     }
 
@@ -75,7 +105,11 @@ object `FeatureExtractor` {
     /** Diferença entre o primeiro e o último scan de contagem BLE */
     private fun bleCountDelta(scans: List<BleScan>): Double {
         if (scans.size < 2) return 0.0
-        return (scans.last().deviceCount - scans.first().deviceCount).toDouble()
+
+        val max = scans.maxOf { it.deviceCount }
+        val min = scans.minOf { it.deviceCount }
+
+        return (max - min).toDouble()
     }
 
     /** Diferença absoluta entre pressão máxima e mínima da janela */
