@@ -85,7 +85,7 @@ class SensorRepository(private val context: Context) {
             val payload: SensorPayload =
                 FeatureExtractor.extract(window, deviceId)
 
-            savePayloadToCsv(payload)
+            //savePayloadToCsv(payload)
 
             // ── LOG FORMATADO ─────────────────────────────
             Log.d(
