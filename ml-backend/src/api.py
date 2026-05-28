@@ -39,13 +39,11 @@ class SensorWindow(BaseModel):
 
     stationary_ratio: float
 
-
 @app.get("/")
 def root():
     return {
         "message": "Vertical Context Detector API is running"
     }
-
 
 @app.get("/health")
 def health():

@@ -43,7 +43,6 @@ def predict_vertical_context(payload: dict) -> dict:
         "classification": classification,
     }
 
-
 if __name__ == "__main__":
     bad_gps_street_sample = {
         "gps_accuracy_mean": 24.0,
