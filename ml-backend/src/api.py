@@ -1,9 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-
 from src.predict import predict_vertical_context
-
 
 app = FastAPI(
     title="Vertical Context Detector API",
@@ -18,7 +16,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 
 class SensorWindow(BaseModel):
     gps_accuracy_mean: float
@@ -42,20 +39,17 @@ class SensorWindow(BaseModel):
 
     stationary_ratio: float
 
-
 @app.get("/")
 def root():
     return {
         "message": "Vertical Context Detector API is running"
     }
 
-
 @app.get("/health")
 def health():
     return {
         "status": "ok"
     }
-
 
 @app.post("/predict")
 def predict(payload: SensorWindow):
