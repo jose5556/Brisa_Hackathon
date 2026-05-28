@@ -20,11 +20,11 @@ Por fim, a API devolve dois valores à aplicação: o `non_street_confidence`, q
 
 Como próximo passo, propomos um segundo modelo responsável pela decisão final: iniciar ou não a cobrança automática.
 
-Este segundo modelo receberia como entrada o resultado do primeiro modelo, especialmente o `non_street_confidence`, juntamente com dados reais de contexto do mapa e do estacionamento. Estes dados poderiam incluir se o utilizador está dentro de uma zona paga conhecida, a distância à via pública mais próxima, a distância a zonas privadas, a proximidade de garagens ou edifícios e padrões históricos de estacionamento anonimizados.
+Este segundo modelo receberá como entrada o resultado do primeiro modelo, especialmente o `non_street_confidence`, juntamente com dados reais de contexto do mapa e do estacionamento. Estes dados podem incluir se o utilizador está dentro de uma zona paga conhecida, a distância à via pública mais próxima, a distância a zonas privadas, a proximidade de garagens ou edifícios e padrões históricos de estacionamento anonimizados.
 
-O objetivo deste segundo modelo seria reduzir falsos positivos. Por exemplo, mesmo que a localização GPS pareça estar próxima de uma rua pública paga, o sistema deve evitar iniciar a cobrança se o carro estiver provavelmente numa garagem privada, num parque subterrâneo, numa estrutura elevada ou numa zona privada sem pagamento.
+O objetivo deste segundo modelo será reduzir falsos positivos superficiais, ao nível do solo. Por exemplo, mesmo que a localização GPS pareça estar próxima de uma rua pública paga, o sistema deve evitar iniciar a cobrança se o carro estiver provavelmente numa garagem privada, num parque subterrâneo, numa estrutura elevada ou numa zona privada sem pagamento.
 
-Uma parte importante deste segundo modelo seria o uso de dados reais de mapa e de padrões coletivos de estacionamento. O sistema poderia aprender como é normalmente o estacionamento público num determinado segmento de rua. Se a maioria dos carros estacionados nessa rua aparecer alinhada num determinado padrão espacial, mas um novo carro surgir claramente deslocado desse padrão, o sistema pode inferir que esse carro está possivelmente numa garagem privada, numa entrada de edifício ou noutra zona que não corresponde a estacionamento público pago.
+Uma parte importante deste segundo modelo será o uso de dados reais de mapa e de padrões coletivos de estacionamento. O sistema poderá aprender como é normalmente o estacionamento público num determinado segmento de rua. Se a maioria dos carros estacionados nessa rua aparecer alinhada num determinado padrão espacial, mas um novo carro surgir claramente deslocado desse padrão, o sistema pode inferir que esse carro está possivelmente numa garagem privada, numa entrada de edifício ou noutra zona que não corresponde a estacionamento público pago.
 
 ## Conclusão
 
