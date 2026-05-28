@@ -1,6 +1,6 @@
 ## Visão Geral do Produto
 
-O objetivo geral do sistema não é apenas detetar se o carro está num parque subterrâneo ou numa zona acima do nível da rua. O objetivo final é apoiar uma decisão automática sobre o início da cobrança de estacionamento.
+O objetivo do sistema proposto é apoiar uma decisão automática sobre se deve ou não ser iniciada uma cobrança de estacionamento baseada em propabilidade.
 
 Em vez de depender apenas da posição GPS, o sistema segue uma abordagem baseada em confiança. Ou seja, a cobrança automática só deve ser iniciada quando o sistema tiver confiança suficiente de que o carro está estacionado numa zona pública e que o pagamento é aplicável.
 
