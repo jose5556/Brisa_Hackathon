@@ -12,7 +12,7 @@ Depois da recolha, os dados brutos são transformados localmente, dentro da apli
 
 De seguida, a aplicação envia estas features em formato JSON para uma API construída com FastAPI. A API recebe os valores, organiza-os pela mesma ordem usada durante o treino do modelo e passa-os ao nosso modelo de Machine Learning.
 
-O modelo implementado é do tipo do tipo supervised learning `RandomForestClassifier`, treinado para distinguir três contextos verticais: `street_level`, `underground` e `above`. Internamente, o modelo calcula a probabilidade de cada uma destas classes. Para a decisão principal, somamos as probabilidades de `underground` e `above`, porque, em ambos os casos, o carro não se encontra numa via pública normal ao nível da rua. Assim, obtemos um valor chamado `non_street_confidence`, entre 0 e 1.
+O modelo implementado é do tipo supervised learning do qual escolhemos `RandomForestClassifier`, treinado para distinguir três contextos verticais: `street_level`, `underground` e `above`. Internamente, o modelo calcula a probabilidade de cada uma destas classes. Para a decisão principal, somamos as probabilidades de `underground` e `above`, porque, em ambos os casos, o carro não se encontra numa via pública normal ao nível da rua. Assim, obtemos um valor chamado `non_street_confidence`, entre 0 e 1.
 
 Por fim, a API devolve dois valores à aplicação: o `non_street_confidence`, que representa a probabilidade de o carro não estar ao nível normal da rua, e a `classification`, usada para depuração, que indica se o modelo considera que o carro está em `street_level`, `underground` ou `above`.
 
