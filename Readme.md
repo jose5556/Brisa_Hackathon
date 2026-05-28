@@ -1,0 +1,9 @@
+A nossa arquitetura começa na app Android, construída em Kotlin. A app recolhe dados reais do telemóvel durante uma janela de tempo, por exemplo 30 segundos. Durante essa janela, são recolhidos sinais como precisão do GPS, perda de sinal, variação de altitude, pressão atmosférica, redes Wi-Fi visíveis, dispositivos Bluetooth próximos e movimento do utilizador.
+
+Depois, esses dados crus são transformados dentro da app em features agregadas, como gps_accuracy_mean, gps_lost_ratio, pressure_delta, altitude_delta e stationary_ratio. Isto é importante porque a app não envia dados sensíveis crus, como nomes de redes Wi-Fi ou localização contínua; envia apenas valores estatísticos úteis para o modelo.
+
+De seguida, a app envia essas features em formato JSON para uma API em Python feita com FastAPI. Essa API recebe os valores, organiza-os na mesma ordem usada durante o treino do modelo e passa-os para o nosso modelo de Machine Learning.
+
+O modelo é um RandomForestClassifier treinado para distinguir três contextos verticais: street_level, underground e above. Internamente, o modelo calcula a probabilidade de cada classe. Para a decisão principal, somamos as probabilidades de underground e above, porque em ambos os casos o carro não está numa rua normal. Assim obtemos um non_street_confidence entre 0 e 1.
+
+Por fim, a API devolve à app dois valores: o non_street_confidence, que indica a probabilidade de o carro não estar ao nível normal da rua, e a classification, que serve para debug e diz se o modelo acha que o carro está em street_level, underground ou above. A app mostra esse resultado ao utilizador em tempo real.

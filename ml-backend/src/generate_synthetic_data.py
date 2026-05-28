@@ -2,55 +2,52 @@ import numpy as np
 import pandas as pd
 
 """ 
-gps_accuracy_mean
-gps_accuracy_delta
-gps_lost_ratio
+gps_accuracy_mean	-> average GPS accuracy during the time window; higher value means worse location precision
+gps_accuracy_max	-> worst GPS accuracy value recorded during the time window
+gps_accuracy_delta	-> difference between GPS accuracy at the end and at the start of the window; shows GPS degradation
+gps_lost_ratio		-> percentage of the window where GPS was unavailable or invalid
 
-pressure_delta
-pressure_slope
+wifi_count_mean		-> average number of visible Wi-Fi networks during the window
+wifi_count_delta	-> difference between the number of visible Wi-Fi networks at the end and at the start
+wifi_rssi_mean		-> average Wi-Fi signal strength; more negative RSSI means weaker signal
 
-altitude_delta
-altitude_accuracy
+ble_count_mean		-> average number of visible Bluetooth/BLE devices
+ble_count_delta		-> difference between the number of visible BLE devices at the end and at the start of the window
+ble_rssi_mean		-> average Bluetooth/BLE signal strength; more negative RSSI means weaker signal
 
-speed_mean
-stationary_ratio
-turning_score
+pressure_delta		-> difference in atmospheric pressure between the end and the start of the window; helps detect
+pressure_slope		-> pressure trend during the window; indicates gradual upward or downward movement
 
-wifi_count_delta
-wifi_rssi_mean
+altitude_delta		-> altitude difference between the end and the start of the window
+vertical_change_abs	-> absolute vertical movement during the window
 
-ble_count_delta
-ble_rssi_mean
-
-expected_road_elevation_delta
-vertical_residual
-
-label 
+stationary_ratio	-> percentage of the window where the user/car was stationary
+label 				-> manually assigned ground-truth label: street or underground
 """
 
 def generate_street_level_sample():
     return {
-        "gps_accuracy_mean": np.random.uniform(4, 12),  # average GPS accuracy during the time window; higher value means worse location precision
-        "gps_accuracy_max": np.random.uniform(8, 18),   # worst GPS accuracy value recorded during the time window
-        "gps_accuracy_delta": np.random.uniform(0, 6),  # difference between GPS accuracy at the end and at the start of the window; shows GPS degradation
-        "gps_lost_ratio": np.random.uniform(0, 0.15),   # percentage of the window where GPS was unavailable or invalid
+        "gps_accuracy_mean": np.random.uniform(4, 12),
+        "gps_accuracy_max": np.random.uniform(8, 18),
+        "gps_accuracy_delta": np.random.uniform(0, 6),
+        "gps_lost_ratio": np.random.uniform(0, 0.15),
 
-        "wifi_count_mean": np.random.uniform(8, 25),    # average number of visible Wi-Fi networks during the window
-        "wifi_count_delta": np.random.uniform(-4, 4),   # difference between the number of visible Wi-Fi networks at the end and at the start; shows environment change
-        "wifi_rssi_mean": np.random.uniform(-75, -45),  # average Wi-Fi signal strength; more negative RSSI means weaker signal
+        "wifi_count_mean": np.random.uniform(8, 25),
+        "wifi_count_delta": np.random.uniform(-4, 4),
+        "wifi_rssi_mean": np.random.uniform(-75, -45),
 
-        "ble_count_mean": np.random.uniform(2, 12),     # average number of visible Bluetooth/BLE devices
-        "ble_count_delta": np.random.uniform(-3, 3),    # difference between the number of visible BLE devices at the end and at the start of the window
-        "ble_rssi_mean": np.random.uniform(-85, -50),   # average Bluetooth/BLE signal strength; more negative RSSI means weaker signal
+        "ble_count_mean": np.random.uniform(2, 12),
+        "ble_count_delta": np.random.uniform(-3, 3),
+        "ble_rssi_mean": np.random.uniform(-85, -50),
 
-        "pressure_delta": np.random.uniform(-0.15, 0.15),   # difference in atmospheric pressure between the end and the start of the window; helps detect
-        "pressure_slope": np.random.uniform(-0.03, 0.03),   # pressure trend during the window; indicates gradual upward or downward movement
+        "pressure_delta": np.random.uniform(-0.15, 0.15),
+        "pressure_slope": np.random.uniform(-0.03, 0.03),
 
-        "altitude_delta": np.random.uniform(-0.5, 0.5),		
+        "altitude_delta": np.random.uniform(-0.5, 0.5),
         "vertical_change_abs": np.random.uniform(0.0, 0.8),
 
-        "stationary_ratio": np.random.uniform(0.5, 1.0),    # percentage of the window where the user/car was stationary
-        "label": "street_level",                            # manually assigned ground-truth label: street or underground
+        "stationary_ratio": np.random.uniform(0.5, 1.0),
+        "label": "street_level",
     }
 
 def generate_hilly_street_level_sample():
@@ -68,11 +65,9 @@ def generate_hilly_street_level_sample():
         "ble_count_delta": np.random.uniform(-3, 3),
         "ble_rssi_mean": np.random.uniform(-85, -55),
 
-        # street can go uphill or downhill
         "pressure_delta": np.random.uniform(-0.8, 0.8),
         "pressure_slope": np.random.uniform(-0.10, 0.10),
 
-        # vertical change caused by normal city slope
         "altitude_delta": np.random.uniform(-6.0, 6.0),
         "vertical_change_abs": np.random.uniform(1.0, 6.0),
 
