@@ -46,18 +46,36 @@ class MainActivity : ComponentActivity() {
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) {}
+    ) { granted ->
+        // Só inicia o serviço depois de ter as permissões
+        if (granted.values.any { it }) {
+            viewModel.startAndBindService()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         requestRequiredPermissions()
-
+        viewModel.startAndBindService()
         setContent {
             ViaVerdeAppTheme {
                 ViaVerdeScreen(viewModel = viewModel)
             }
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        // Liga-se ao serviço sempre que a Activity fica visível
+        // Se o serviço ainda não arrancou, startAndBindService trata disso
+        viewModel.startAndBindService()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        // Só desliga o bind — o serviço CONTINUA em background
+        viewModel.unbindService()
     }
 
     private fun requestRequiredPermissions() {
@@ -79,6 +97,7 @@ class MainActivity : ComponentActivity() {
         permissionLauncher.launch(permissions.toTypedArray())
     }
 }
+
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
 
@@ -157,7 +176,7 @@ fun ViaVerdeScreen(viewModel: SensorViewModel) {
                 Text(
                     text = "CONTEXT DETECTION",
                     color = Color.White.copy(alpha = 0.7f),
-                    fontSize = 10.sp,
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
                     letterSpacing = 2.sp
                 )
@@ -200,7 +219,7 @@ fun ViaVerdeScreen(viewModel: SensorViewModel) {
             // Botão principal
             Button(
                 onClick = {
-                    if (!isLoading) viewModel.collectAndSend()
+                    if (!isLoading) viewModel.sendCurrentWindow()
                     else viewModel.resetResult()
                 },
                 modifier = Modifier
@@ -219,11 +238,11 @@ fun ViaVerdeScreen(viewModel: SensorViewModel) {
                         color = Color.White
                     )
                     Spacer(Modifier.width(10.dp))
-                    Text("A recolher… (30s)", color = Color.White,
+                    Text("Analisando… (30s)", color = Color.White,
                         fontWeight = FontWeight.Bold, fontSize = 15.sp,
                         letterSpacing = 0.5.sp)
                 } else {
-                    Text("▶  INICIAR RECOLHA", color = Color.White,
+                    Text("▶  ANALISAR AMBIENTE", color = Color.White,
                         fontWeight = FontWeight.Bold, fontSize = 15.sp,
                         letterSpacing = 1.sp)
                 }

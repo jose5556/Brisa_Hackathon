@@ -16,7 +16,7 @@ import java.util.concurrent.TimeUnit
 // private const val BASE_URL = "http://10.0.2.2:8000/"
 
 // Physical phone on same Wi-Fi as your PC:
-private const val BASE_URL = "http://10.21.100.8:8000/"
+private const val BASE_URL = "http://172.20.10.8:8000/"
 
 /** Envia uma janela de features já calculadas. */
 interface SensorApiService {
