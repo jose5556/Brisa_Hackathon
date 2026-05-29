@@ -2,7 +2,7 @@
 
 O objetivo do sistema proposto é apoiar uma decisão automática sobre se deve ou não ser iniciada uma cobrança de estacionamento baseada em propabilidade.
 
-Em vez de depender apenas da posição GPS, o sistema segue uma abordagem baseada em confiança. Ou seja, a cobrança automática só deve ser iniciada quando o sistema tiver confiança suficiente de que o carro está estacionado numa zona pública e que o pagamento é aplicável.
+Em vez de depender apenas da posição GPS, o sistema segue uma abordagem baseada em confiança, ou seja, a cobrança automática só deve ser iniciada quando o sistema tiver confiança suficiente de que o carro está estacionado numa zona pública e que o pagamento é aplicável.
 
 ## Arquitetura do Sistema e Implementação
 
