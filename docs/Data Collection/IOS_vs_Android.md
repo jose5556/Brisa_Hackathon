@@ -13,3 +13,6 @@
 | **Wi-Fi AP Count** (`wifiCountMean`)                   | `WifiManager.scanResults.size`                                | ❌ Não disponível                                               | Grande limitação do iOS.                        |
 | **Wi-Fi RSSI Médio** (`wifiRssiMean`)                  | `ScanResult.level`                                            | ❌ Não disponível                                               | Apple bloqueia acesso.                          |
 | **Wi-Fi Delta** (`wifiCountDelta`)                     | Comparação entre scans                                        | ❌ Não disponível                                               | Não pode ser implementado.                      |
+| **Magnetômetro (Campo Magnético)**                    | `SensorManager` + `Sensor.TYPE_MAGNETIC_FIELD` | `CoreMotion` (`CMMotionManager.magnetometerData`) | Equivalente direto. |
+| **Intensidade Magnética Média** (`magneticFieldMean`) | `SensorEvent.values[0..2]`                     | `CMMagnetometerData.magneticField`                | Equivalente direto. |
+
