@@ -1,9 +1,14 @@
 import joblib
 import pandas as pd
+from pathlib import Path
 
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report
 from sklearn.model_selection import train_test_split
+
+BASE_DIR = Path(__file__).resolve().parents[1]
+DATA_PATH = BASE_DIR / "data" / "synthetic_data.csv"
+MODEL_PATH = BASE_DIR / "models" / "vertical_context_rf.joblib"
 
 FEATURES = [
     "gps_accuracy_mean",
@@ -28,8 +33,9 @@ FEATURES = [
     "stationary_ratio",
 ]
 
+
 def main():
-    df = pd.read_csv("data/synthetic_data.csv")
+    df = pd.read_csv(DATA_PATH)
 
     X = df[FEATURES]
     y = df["label"]
@@ -60,10 +66,10 @@ def main():
             "model": model,
             "features": FEATURES,
         },
-        "models/vertical_context_rf.joblib",
+        MODEL_PATH,
     )
 
-    print("Saved models/vertical_context_rf.joblib")
+    print(f"Saved {MODEL_PATH}")
 
 
 if __name__ == "__main__":
