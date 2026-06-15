@@ -22,7 +22,7 @@ This backend predicts whether a sensor window corresponds to a street-level or n
 
 3. Install the dependencies:
    ```bash
-   pip install -r requirements.txt
+   python -m pip install -r requirements.txt
    ```
 
 ## Train the model
@@ -58,6 +58,15 @@ Run the prediction tests with:
 
 ```bash
 python -m pytest ../tests/test_vertical_ml_predict.py
+```
+
+If the virtual environment is broken and `pip` fails with “required file not found”, remove it and recreate it:
+
+```bash
+rm -rf venv
+python3 -m venv venv
+source venv/bin/activate
+python -m pip install -r requirements.txt
 ```
 
 ## Example prediction request
