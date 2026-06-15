@@ -5,64 +5,81 @@ This backend predicts whether a sensor window corresponds to a street-level or n
 ## Requirements
 
 - Python 3.11+
-- A virtual environment in `backend/venv`
+- Docker Compose (for the PostgreSQL database)
+- A working virtual environment in `backend/venv`
 
-## Setup
+## Fastest setup with Makefile
 
-1. Go to the backend folder:
-   ```bash
-   cd backend
-   ```
-
-2. Create and activate a virtual environment:
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate
-   ```
-
-3. Install the dependencies:
-   ```bash
-   python -m pip install -r requirements.txt
-   ```
-
-## Train the model
-
-Run this once before using predictions:
+From the project root:
 
 ```bash
-python scripts/train_model.py
+make -C backend venv
+make -C backend install
+make -C backend up
+make -C backend train
 ```
 
-This saves the model to:
+From inside the backend folder:
 
-```text
-backend/models/vertical_context_rf.joblib
+```bash
+make venv
+make install
+make up
+make train
 ```
 
 ## Run the API
 
-Start the FastAPI server with:
+From the backend folder, use the Makefile target:
 
 ```bash
-uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
+make api
 ```
 
-You can then open:
+If you are at the project root instead, use:
+
+```bash
+make -C backend api
+```
+
+This starts the FastAPI server on:
 
 - http://localhost:8000/health
 - http://localhost:8000/docs
 
-## Run the tests
-
-Run the prediction tests with:
+If you prefer to run it manually, use:
 
 ```bash
-python -m pytest ../tests/test_vertical_ml_predict.py
+PYTHONPATH=/home/cereais/workspace/seame/Hackathon/Brisa_Hackathon/backend \
+/home/cereais/workspace/seame/Hackathon/Brisa_Hackathon/backend/venv/bin/python -m uvicorn src.main:app --host 127.0.0.1 --port 8000
 ```
 
-If the virtual environment is broken and `pip` fails with “required file not found”, remove it and recreate it:
+## Run the tests
+
+From the backend folder:
 
 ```bash
+make test
+```
+
+From the project root:
+
+```bash
+make -C backend test
+```
+
+## Test the database connection
+
+```bash
+make db-test
+```
+
+## If the virtual environment is broken
+
+If `pip` fails with “required file not found”, recreate the environment:
+
+```bash
+cd backend
 rm -rf venv
 python3 -m venv venv
 source venv/bin/activate
