@@ -111,120 +111,9 @@ final class SensorApiClient {
     }
 }
 
-// ── SensorWindow → SensorPayload ──────────────────────
-/// Calcula todas as features a partir de uma janela de leituras brutas.
-/// Chama isto antes de enviar para o servidor.
-extension SensorWindow {
-
-    func toPayload() -> SensorPayload? {
-
-        // ── GPS ───────────────────────────────────────
-        guard !gpsReadings.isEmpty else { return nil }
-
-        let lastGps  = gpsReadings.last!
-        let accuracies = gpsReadings.map { Double($0.accuracyMeters) }
-        let speeds     = gpsReadings.map { $0.speedMps }
-        let altitudes  = gpsReadings.map { $0.altitudeMeters }
-        let signalLost = gpsReadings.filter { !$0.hasSignal }.count
-
-        let gpsAccuracyMean  = accuracies.mean
-        let gpsAccuracyMax   = accuracies.max() ?? 0
-        let gpsAccuracyDelta = (accuracies.max() ?? 0) - (accuracies.min() ?? 0)
-        let gpsLostRatio     = Double(signalLost) / Double(gpsReadings.count)
-        let gpsSpeedMean     = speeds.mean
-        let gpsSpeedMax      = speeds.max() ?? 0
-
-        // ── Altitude ──────────────────────────────────
-        let altitudeDelta      = (altitudes.last ?? 0) - (altitudes.first ?? 0)
-        let verticalChangeAbs  = zip(altitudes, altitudes.dropFirst())
-            .map { abs($1 - $0) }
-            .reduce(0, +)
-
-        // ── Barómetro ─────────────────────────────────
-        let pressureDelta: Double
-        let pressureSlope: Double
-
-        if pressureReadings.count >= 2 {
-            let hPaValues = pressureReadings.map { Double($0.hPa) }
-            pressureDelta = (hPaValues.last ?? 0) - (hPaValues.first ?? 0)
-            pressureSlope = pressureDelta / Double(pressureReadings.count - 1)
-        } else {
-            pressureDelta = 0
-            pressureSlope = 0
-        }
-
-        // ── Movimento (acelerómetro) ───────────────────
-        let stationaryRatio: Double
-
-        if !motionSamples.isEmpty {
-            let threshold: Float = 0.15   // m/s² — abaixo disto considera parado
-            let stationary = motionSamples.filter { sample in
-                let magnitude = sqrt(sample.ax * sample.ax +
-                                     sample.ay * sample.ay +
-                                     sample.az * sample.az)
-                return abs(magnitude - 9.81) < threshold   // remove gravidade
-            }.count
-            stationaryRatio = Double(stationary) / Double(motionSamples.count)
-        } else {
-            stationaryRatio = 1.0   // sem dados → assume parado
-        }
-
-        // ── Magnetómetro ──────────────────────────────
-        let magneticFieldMean: Double
-        let magneticFieldMax: Double
-        let magneticFieldDelta: Double
-        let magneticFieldVariance: Double
-
-        if !magneticReadings.isEmpty {
-            let magnitudes = magneticReadings.map { $0.magnitude }
-            magneticFieldMean     = magnitudes.mean
-            magneticFieldMax      = magnitudes.max() ?? 0
-            magneticFieldDelta    = (magnitudes.last ?? 0) - (magnitudes.first ?? 0)
-            magneticFieldVariance = magnitudes.variance
-        } else {
-            magneticFieldMean     = 0
-            magneticFieldMax      = 0
-            magneticFieldDelta    = 0
-            magneticFieldVariance = 0
-        }
-
-        return SensorPayload(
-            latitude:              lastGps.latitude,
-            longitude:             lastGps.longitude,
-            gpsAccuracyMean:       gpsAccuracyMean,
-            gpsAccuracyMax:        gpsAccuracyMax,
-            gpsAccuracyDelta:      gpsAccuracyDelta,
-            gpsLostRatio:          gpsLostRatio,
-            gpsSpeedMean:          gpsSpeedMean,
-            gpsSpeedMax:           gpsSpeedMax,
-            pressureDelta:         pressureDelta,
-            pressureSlope:         pressureSlope,
-            stationaryRatio:       stationaryRatio,
-            altitudeDelta:         altitudeDelta,
-            verticalChangeAbs:     verticalChangeAbs,
-            magneticFieldMean:     magneticFieldMean,
-            magneticFieldMax:      magneticFieldMax,
-            magneticFieldDelta:    magneticFieldDelta,
-            magneticFieldVariance: magneticFieldVariance
-        )
-    }
-}
-
-// ── Helpers aritméticos ───────────────────────────────
-private extension Array where Element == Double {
-    var mean: Double {
-        isEmpty ? 0 : reduce(0, +) / Double(count)
-    }
-    var variance: Double {
-        guard count > 1 else { return 0 }
-        let m = mean
-        return map { ($0 - m) * ($0 - m) }.reduce(0, +) / Double(count - 1)
-    }
-}
-
 // ── Usage example ──────────────────────────────────────
 /*
-// 1. Acumula leituras durante a janela de observação (ex: 15 segundos)
+// 1. Acumula leituras durante a janela de observacao (ex: 15 segundos)
 var window = SensorWindow()
 window.gpsReadings.append(GpsReading(
     latitude: 38.7169, longitude: -9.1395,
@@ -235,9 +124,9 @@ window.pressureReadings.append(PressureReading(hPa: 1012.3))
 window.motionSamples.append(MotionSample(ax: 0.02, ay: 0.01, az: 9.81))
 window.magneticReadings.append(MagneticReading(x: 22.1, y: -14.3, z: 38.5))
 
-// 2. Converte para payload e envia
+// 2. Extrai features e envia
 Task {
-    guard let payload = window.toPayload() else {
+    guard let payload = FeatureExtractor.extract(window: window) else {
         print("GPS readings insuficientes")
         return
     }
