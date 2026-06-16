@@ -54,17 +54,17 @@ struct TestRunner {
             print()
 
             // ── chama a API ───────────────────────────
-            do {
-                let result = try await SensorApiClient.shared.predictVerticalContext(payload: payload)
-                print("✅ Resposta da API:")
-                print("   classification      : \(result.classification)")
-                print("   nonStreetConfidence : \(result.nonStreetConfidence)")
-            } catch SensorApiError.networkError(let e) {
-                print("❌ Servidor inacessível — confirma que está a correr em 172.20.10.8:8000")
-                print("   Detalhe: \(e.localizedDescription)")
-            } catch {
-                print("❌ Erro: \(error.localizedDescription)")
-            }
+            //do {
+            //    let result = try await SensorApiClient.shared.predictVerticalContext(payload: payload)
+            //    print("✅ Resposta da API:")
+            //    print("   classification      : \(result.classification)")
+            //    print("   nonStreetConfidence : \(result.nonStreetConfidence)")
+            //} catch SensorApiError.networkError(let e) {
+            //    print("❌ Servidor inacessível — confirma que está a correr em 172.20.10.8:8000")
+            //    print("   Detalhe: \(e.localizedDescription)")
+            //} catch {
+            //    print("❌ Erro: \(error.localizedDescription)")
+            //}
         }
 
         semaphore.wait()
