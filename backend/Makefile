@@ -37,5 +37,19 @@ down:
 db-test:
 	. $(VENV)/bin/activate && $(PYTHON_VENV) scripts/test_db_connection.py
 
+	.PHONY: db-init db-reset db-shell
+
+db-init:
+	docker compose exec -T db psql -U parking_user -d parking_db < db/schema.sql
+
+db-reset:
+	docker compose down -v
+	docker compose up -d
+	sleep 3
+	docker compose exec -T db psql -U parking_user -d parking_db < db/schema.sql
+
+db-shell:
+	docker compose exec db psql -U parking_user -d parking_db
+
 test:
 	. $(VENV)/bin/activate && $(PYTHON_VENV) -m pytest ../tests/test_vertical_ml_predict.py

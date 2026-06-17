@@ -18,7 +18,7 @@ CREATE TYPE session_status AS ENUM (
     'detecting',          -- 10-second window in progress (!!! to decide that timeframe, how that will work !!!)
     'pending_confirm',    -- push sent
     'confirmed',          -- user confirmed (positive label)
-    'cancelled',          -- user cancelled (negative label)
+    'cancelled'           -- user cancelled (negative label)
 );
 
 CREATE TYPE model_decision AS ENUM (
@@ -190,6 +190,9 @@ CREATE TABLE inference_logs (
     -- Final pipeline decision
     final_decision              model_decision NOT NULL DEFAULT 'uncertain',
     final_confidence            NUMERIC(5,4),
+    inferred_at                 TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    total_latency_ms            NUMERIC(8,2),
+    model_was_correct           BOOLEAN
 );
 
 CREATE INDEX idx_inference_logs_session ON inference_logs(session_id);
@@ -309,9 +312,9 @@ SELECT
     pz.zone_name,
     pz.city,
     COUNT(il.id)                                AS total_inferences,
-    COUNT(*) FILTER (WHERE il.model_was_correct = FALSE) AS errors,
+    COUNT(*) FILTER (WHERE COALESCE(il.model_was_correct, FALSE) = FALSE) AS errors,
     ROUND(
-        COUNT(*) FILTER (WHERE il.model_was_correct = FALSE)::NUMERIC
+        COUNT(*) FILTER (WHERE COALESCE(il.model_was_correct, FALSE) = FALSE)::NUMERIC
         / NULLIF(COUNT(il.id), 0) * 100, 2
     )                                           AS error_rate_pct
 FROM paid_zones pz
