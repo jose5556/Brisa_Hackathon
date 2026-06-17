@@ -9,3 +9,5 @@ pytest
 sqlalchemy
 psycopg[binary]
 python-dotenv
+geopandas
+shapely
