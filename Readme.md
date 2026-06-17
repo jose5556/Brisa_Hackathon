@@ -1,40 +1,40 @@
-## Visão Geral do Produto
+## Product Overview
 
-O objetivo do sistema proposto é apoiar uma decisão automática sobre se deve ou não ser iniciada uma cobrança de estacionamento baseada em propabilidade.
+The proposed system aims to support an automatic decision on whether to start a parking charge based on confidence.
 
-Em vez de depender apenas da posição GPS, o sistema segue uma abordagem baseada em confiança, ou seja, a cobrança automática só deve ser iniciada quando o sistema tiver confiança suficiente de que o carro está estacionado numa zona pública e que o pagamento é aplicável.
+Instead of relying solely on GPS position, the system follows a confidence-based approach: automatic charging should only start when the system is sufficiently confident the vehicle is parked in a public area where payment applies.
 
-## Arquitetura do Sistema e Implementação
+## System Architecture and Implementation
 
-A nossa arquitetura começa numa aplicação Android desenvolvida em Kotlin. A aplicação recolhe dados reais do telemóvel durante uma janela de observação fixa de 10 segundos. Durante esse intervalo, são recolhidos sinais como a precisão do GPS, a perda de sinal GPS, a variação de altitude, a pressão atmosférica e as redes Wi-Fi próximas visíveis.
+Our architecture begins with an Android app written in Kotlin. The app collects real phone sensor data during a fixed 10-second observation window. During that interval, signals such as GPS accuracy, GPS signal loss, altitude variation, atmospheric pressure, and nearby visible Wi‑Fi networks are gathered.
 
-Depois da recolha, os dados brutos são transformados localmente, dentro da aplicação, em features agregadas, como `gps_accuracy_mean`, `gps_lost_ratio`, `pressure_delta`, `altitude_delta`, `vertical_change_abs` e `stationary_ratio`. Este passo é importante porque a aplicação não envia dados sensíveis em bruto, como nomes de redes Wi-Fi, identificadores Bluetooth ou localização contínua. Em vez disso, envia apenas valores estatísticos úteis para o modelo, seguindo uma abordagem de minimização de dados e privacidade desde a conceção.
+After collection, the raw data is transformed locally within the app into aggregated features such as `gps_accuracy_mean`, `gps_lost_ratio`, `pressure_delta`, `altitude_delta`, `vertical_change_abs`, and `stationary_ratio`. This step is important because the app does not send sensitive raw data like Wi‑Fi SSIDs, Bluetooth identifiers, or continuous location. Instead, it only sends statistical values useful for the model, following a data minimization and privacy-by-design approach.
 
-De seguida, a aplicação envia estas features em formato JSON para uma API construída com FastAPI. A API recebe os valores, organiza-os pela mesma ordem usada durante o treino do modelo e passa-os ao nosso modelo de Machine Learning.
+The app then sends these features as JSON to an API built with FastAPI. The API receives the values, arranges them in the same order used during model training, and passes them to our Machine Learning model.
 
-O modelo implementado é do tipo supervised learning do qual escolhemos `RandomForestClassifier`, treinado para distinguir três contextos verticais: `street_level`, `underground` e `above`. Internamente, o modelo calcula a probabilidade de cada uma destas classes. Para a decisão principal, somamos as probabilidades de `underground` e `above`, porque, em ambos os casos, o carro não se encontra numa via pública normal ao nível da rua. Assim, obtemos um valor chamado `non_street_confidence`, entre 0 e 1.
+The implemented model is a supervised `RandomForestClassifier` trained to distinguish three vertical contexts: `street_level`, `underground`, and `above`. Internally, the model computes the probability for each class. For the main decision, we sum the probabilities of `underground` and `above` because in both cases the vehicle is not on a normal street-level public road. This yields a value called `non_street_confidence` between 0 and 1.
 
-Por fim, a API devolve dois valores à aplicação: o `non_street_confidence`, que representa a probabilidade de o carro não estar ao nível normal da rua, e a `classification`, usada para depuração, que indica se o modelo considera que o carro está em `street_level`, `underground` ou `above`.
+Finally, the API returns two values to the app: `non_street_confidence`, representing the probability the vehicle is not at normal street level, and `classification`, provided for debugging, indicating whether the model considers the vehicle as `street_level`, `underground`, or `above`.
 
-## Segundo Modelo Planeado: Decisão de Cobrança Automática
+## Planned Second Model: Automatic Charging Decision
 
-Como próximo passo, propomos um segundo modelo responsável pela decisão final: iniciar ou não a cobrança automática.
+As a next step, we propose a second model responsible for the final decision: whether to initiate automatic charging.
 
-Este segundo modelo receberá como entrada o resultado do primeiro modelo, especialmente o `non_street_confidence`, juntamente com dados reais de contexto do mapa e do estacionamento. Estes dados podem incluir se o utilizador está dentro de uma zona paga conhecida, a distância à via pública mais próxima, a distância a zonas privadas, a proximidade de garagens ou edifícios e padrões históricos de estacionamento anonimizados.
+This second model will take as input the output of the first model (especially `non_street_confidence`) along with real contextual map and parking data. These inputs may include whether the user is inside a known paid zone, distance to the nearest public road, distance to private areas, proximity to garages or buildings, and anonymized historical parking patterns.
 
-O objetivo deste segundo modelo será reduzir falsos positivos superficiais, ao nível do solo. Por exemplo, mesmo que a localização GPS pareça estar próxima de uma rua pública paga, o sistema deve evitar iniciar a cobrança se o carro estiver provavelmente numa garagem privada, num parque subterrâneo, numa estrutura elevada ou numa zona privada sem pagamento.
+The goal of the second model is to reduce ground-level false positives. For example, even if GPS indicates proximity to a paid public street, the system should avoid initiating charging if the vehicle is likely in a private garage, underground parking, elevated structure, or private area where payment does not apply.
 
-Uma parte importante deste segundo modelo será o uso de dados reais de mapa e de padrões coletivos de estacionamento. O sistema poderá aprender como é normalmente o estacionamento público num determinado segmento de rua. Se a maioria dos carros estacionados nessa rua aparecer alinhada num determinado padrão espacial, mas um novo carro surgir claramente deslocado desse padrão, o sistema pode inferir que esse carro está possivelmente numa garagem privada, numa entrada de edifício ou noutra zona que não corresponde a estacionamento público pago.
+An important part of this second model is using real map data and collective parking patterns. The system can learn typical public parking behavior on a given street segment. If most parked vehicles on that street follow a particular spatial pattern but a new vehicle appears clearly offset from that pattern, the system can infer the vehicle is possibly in a private garage, building entrance, or another area that does not correspond to paid public parking.
 
-## Conclusão
+## Conclusion
 
-Em suma, a pipeline final seria:
+In summary, the final pipeline would be:
 
-1. A aplicação recolhe dados dos sensores do telemóvel.
-2. O primeiro modelo estima o contexto vertical do carro.
-3. O segundo modelo combina esse resultado com dados de mapa e padrões de estacionamento.
-4. O sistema calcula uma confiança final para cobrança automática.
-5. Se a confiança for alta, a cobrança pode ser iniciada automaticamente.
-6. Se a confiança for baixa ou ambígua, o utilizador pode receber uma confirmação em vez de ser cobrado automaticamente.
+1. The app collects phone sensor data.
+2. The first model estimates the vehicle's vertical context.
+3. The second model combines that result with map data and parking patterns.
+4. The system computes a final confidence score for automatic charging.
+5. If confidence is high, automatic charging may be initiated.
+6. If confidence is low or ambiguous, the user can be prompted for confirmation instead of being charged automatically.
 
-Esta abordagem com dois modelos torna o sistema mais seguro e menos dependente de uma localização GPS perfeita. O primeiro modelo resolve o problema do contexto vertical, enquanto o segundo modelo trataria da decisão final de cobrança, usando contexto espacial, dados reais de mapa e padrões aprendidos de estacionamento.
+This two-model approach makes the system safer and less dependent on perfect GPS. The first model handles vertical context, while the second model makes the final charging decision using spatial context, real map data, and learned parking patterns.
