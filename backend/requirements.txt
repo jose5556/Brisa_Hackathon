@@ -11,3 +11,4 @@ psycopg[binary]
 python-dotenv
 geopandas
 shapely
+psycopg2-binary
