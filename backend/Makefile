@@ -40,13 +40,13 @@ db-test:
 	.PHONY: db-init db-reset db-shell
 
 db-init:
-	docker compose exec -T db psql -U parking_user -d parking_db < db/schema.sql
+	docker compose exec -T db psql -U parking_user -d parking_db < database/schema.sql
 
 db-reset:
 	docker compose down -v
 	docker compose up -d
 	sleep 3
-	docker compose exec -T db psql -U parking_user -d parking_db < db/schema.sql
+	docker compose exec -T db psql -U parking_user -d parking_db < database/schema.sql
 
 db-shell:
 	docker compose exec db psql -U parking_user -d parking_db

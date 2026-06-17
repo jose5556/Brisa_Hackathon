@@ -6,6 +6,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from src.database import get_db
+from src.parking_service import analyze_and_store_parking_event
 from src.vertical_ml_predict import predict_vertical_context
 
 app = FastAPI(
@@ -58,9 +59,99 @@ def db_schema_info(db: Session = Depends(get_db)):
 @app.post("/predict")
 def predict(payload: dict[str, Any]):
     try:
-        result = predict_vertical_context(payload)
-        return result
+        return predict_vertical_context(payload)
+
     except FileNotFoundError as error:
         raise HTTPException(status_code=500, detail=str(error))
+
     except Exception as error:
-        raise HTTPException(status_code=500, detail=f"Prediction failed: {str(error)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Prediction failed: {str(error)}",
+        )
+
+
+@app.post("/parking-events/analyze")
+def analyze_parking_event(
+    payload: dict[str, Any],
+    db: Session = Depends(get_db),
+):
+    try:
+        return analyze_and_store_parking_event(db, payload)
+
+    except FileNotFoundError as error:
+        raise HTTPException(status_code=500, detail=str(error))
+
+    except Exception as error:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Parking event analysis failed: {str(error)}",
+        )
+
+@app.get("/parking-events/latest")
+def latest_parking_events(
+    limit: int = 10,
+    db: Session = Depends(get_db),
+):
+    rows = db.execute(
+        text(
+            """
+            SELECT
+                ps.id AS session_id,
+                ps.city,
+                ps.status,
+                ps.detected_at,
+                ps.location_accuracy_m,
+                il.ml1_non_street_confidence,
+                il.final_decision,
+                il.final_confidence,
+                il.inferred_at
+            FROM parking_sessions ps
+            LEFT JOIN inference_logs il ON il.session_id = ps.id
+            ORDER BY ps.created_at DESC
+            LIMIT :limit
+            """
+        ),
+        {"limit": limit},
+    ).mappings().all()
+
+    return {
+        "count": len(rows),
+        "events": [dict(row) for row in rows],
+    }
+
+@app.get("/parking-events/{session_id}")
+def get_parking_event(
+    session_id: str,
+    db: Session = Depends(get_db),
+):
+    row = db.execute(
+        text(
+            """
+            SELECT
+                ps.id AS session_id,
+                ps.city,
+                ps.status,
+                ps.detected_at,
+                ps.location_accuracy_m,
+                ST_AsGeoJSON(ps.detected_location)::json AS detected_location,
+                sp.raw_payload,
+                il.ml1_non_street_confidence,
+                il.final_decision,
+                il.final_confidence,
+                il.inferred_at
+            FROM parking_sessions ps
+            LEFT JOIN sensor_payloads sp ON sp.session_id = ps.id
+            LEFT JOIN inference_logs il ON il.session_id = ps.id
+            WHERE ps.id = :session_id
+            ORDER BY il.inferred_at DESC
+            LIMIT 1
+            """
+        ),
+        {"session_id": session_id},
+    ).mappings().first()
+
+    if row is None:
+        raise HTTPException(status_code=404, detail="Parking event not found")
+
+    return dict(row)
