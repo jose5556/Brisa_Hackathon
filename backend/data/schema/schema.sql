@@ -55,7 +55,7 @@ CREATE TABLE users (
 CREATE TABLE paid_zones (
     id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     city                city_code NOT NULL,
-    geom                GEOMETRY(MULTIPOLYGON, 4326) NOT NULL,  -- PostGIS
+    geom                GEOMETRY(Geometry, 4326) NOT NULL,  -- PostGIS
     source              TEXT NOT NULL DEFAULT 'manual',   -- 'osm' | 'brisa' | 'manual' | 'portoDigital'
     source_version      TEXT NOT NULL,               -- e.g.: version or date of the source published
     is_active           BOOLEAN NOT NULL DEFAULT TRUE,
