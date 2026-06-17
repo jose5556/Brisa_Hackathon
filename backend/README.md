@@ -47,13 +47,6 @@ This starts the FastAPI server on:
 - http://localhost:8000/health
 - http://localhost:8000/docs
 
-If you prefer to run it manually, use:
-
-```bash
-PYTHONPATH=/home/cereais/workspace/seame/Hackathon/Brisa_Hackathon/backend \
-/home/cereais/workspace/seame/Hackathon/Brisa_Hackathon/backend/venv/bin/python -m uvicorn src.main:app --host 127.0.0.1 --port 8000
-```
-
 ## Run the tests
 
 From the backend folder:
