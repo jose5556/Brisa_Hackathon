@@ -40,9 +40,9 @@ struct TestRunner {
                 MagneticReading(x: 22.1, y: -14.3, z: 38.5)
             ]
 
-            // ── converte para payload ─────────────────
-            guard let payload = window.toPayload() else {
-                print("❌ toPayload() retornou nil — GPS readings insuficientes")
+            // ── extrai features ───────────────────────
+            guard let payload = FeatureExtractor.extract(window: window) else {
+                print("GPS readings insuficientes")
                 return
             }
 
