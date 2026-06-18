@@ -233,7 +233,6 @@ def create_inference_log(
 
                 final_decision,
                 final_confidence,
-                total_latency_ms
             )
             VALUES (
                 :session_id,
@@ -244,7 +243,6 @@ def create_inference_log(
 
                 :final_decision,
                 :final_confidence,
-                :total_latency_ms
             )
             RETURNING id
             """
@@ -258,7 +256,6 @@ def create_inference_log(
 
             "final_decision": final_decision,
             "final_confidence": non_street_confidence,
-            "total_latency_ms": latency_ms,
         },
     ).scalar_one()
 

@@ -57,6 +57,7 @@ up:
 
 down:
 	docker compose down
+	docker compose down -v
 
 data:
 	. $(VENV)/bin/activate && $(PYTHON_VENV) scripts/generate_synthetic_data.py
