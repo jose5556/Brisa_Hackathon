@@ -216,14 +216,8 @@ def create_inference_log(
 ) -> str:
     non_street_confidence = prediction["non_street_confidence"]
 
-    # Temporary rule until ML2 is implemented.
-    # Later this should come from the second model.
-    if non_street_confidence >= 0.65:
-        final_decision = "do_not_charge"
-    elif non_street_confidence <= 0.25:
+    if non_street_confidence <= 0.25:
         final_decision = "uncertain"
-    else:
-        final_decision = "ask_user"
 
     inference_id = db.execute(
         text(

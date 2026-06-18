@@ -9,7 +9,7 @@ SSL_KEY_FILE ?= $(CERT_DIR)/dev-key.pem
 HOST ?= 0.0.0.0
 PORT ?= 8000
 
-.PHONY: venv install test up down api cert train db-test db-init db-reset db-shell help
+.PHONY: venv install test up down api api-http cert train db-test db-init db-reset db-shell help
 
 help:
 	@echo "Available targets:"
@@ -18,9 +18,10 @@ help:
 	@echo "  make train       - train the ML model"
 	@echo "  make cert        - create a self-signed development SSL certificate"
 	@echo "  make api         - run the FastAPI server over HTTPS (default)"
+	@echo "  make api-http    - run the FastAPI server over HTTP for local mobile development"
 	@echo "  make up          - start the PostgreSQL container"
 	@echo "  make down        - stop the PostgreSQL container"
-	@echo "  make db-init     - load data/schema.sql into PostgreSQL"
+	@echo "  make db-init     - load database/schema.sql into PostgreSQL"
 	@echo "  make db-reset    - recreate the database and reload the schema"
 	@echo "  make db-shell    - open a psql shell in the database container"
 	@echo "  make db-test     - test the DB connection"
@@ -47,6 +48,9 @@ cert:
 api: cert
 	. $(VENV)/bin/activate && $(PYTHON_VENV) -m uvicorn src.main:app --host $(HOST) --port $(PORT) --reload --ssl-keyfile $(SSL_KEY_FILE) --ssl-certfile $(SSL_CERT_FILE)
 
+api-http:
+	. $(VENV)/bin/activate && $(PYTHON_VENV) -m uvicorn src.main:app --host $(HOST) --port $(PORT) --reload
+
 up:
 	docker compose up -d
 
@@ -54,7 +58,7 @@ down:
 	docker compose down
 
 db-test:
-	. $(VENV)/bin/activate && $(PYTHON_VENV) scripts/test_db_connection.py
+	. $(VENV)/bin/activate && $(PYTHON_VENV) ../tests/test_db_connection.py
 
 db-init:
 	docker compose exec -T db psql -U parking_user -d parking_db < database/schema.sql

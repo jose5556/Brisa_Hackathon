@@ -203,8 +203,8 @@ def main():
     df = pd.DataFrame(samples)
     df = df.sample(frac=1, random_state=42)
 
-    df.to_csv("data/synthetic_data.csv", index=False)
-    print("Saved data/synthetic_data.csv")
+    df.to_csv("database/synthetic_data.csv", index=False)
+    print("Saved database/synthetic_data.csv")
 
 
 if __name__ == "__main__":

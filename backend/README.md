@@ -55,7 +55,7 @@ make db-reset
 make db-shell
 ```
 
-`make db-init` loads the schema from `data/schema.sql` into the running database.
+`make db-init` loads the schema from `database/schema.sql` into the running database.
 
 ## If the virtual environment is broken
 
