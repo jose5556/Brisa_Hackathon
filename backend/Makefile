@@ -35,7 +35,7 @@ down:
 	docker compose down
 
 db-test:
-	. $(VENV)/bin/activate && $(PYTHON_VENV) scripts//back/test_db_connection.py
+	. $(VENV)/bin/activate && $(PYTHON_VENV) ../tests/back/test_db_connection.py
 
 test:
-	. $(VENV)/bin/activate && $(PYTHON_VENV) -m pytest ../tests/test_vertical_ml_predict.py
+	. $(VENV)/bin/activate && $(PYTHON_VENV) -m pytest ../tests/ml/test_vertical_ml_predict.py
