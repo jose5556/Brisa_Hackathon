@@ -18,7 +18,7 @@ CREATE TYPE session_status AS ENUM (
     'detecting',          -- 10-second window in progress (!!! to decide that timeframe, how that will work !!!)
     'pending_confirm',    -- push sent
     'confirmed',          -- user confirmed (positive label)
-    'cancelled',          -- user cancelled (negative label)
+    'cancelled'          -- user cancelled (negative label)
 );
 
 CREATE TYPE model_decision AS ENUM (
@@ -55,11 +55,10 @@ CREATE TABLE users (
 CREATE TABLE paid_zones (
     id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     city                city_code NOT NULL,
-    zone_name           TEXT,                          -- e.g. "Zona Azul Bonfim"
-    geom                GEOMETRY(MULTIPOLYGON, 4326) NOT NULL,  -- PostGIS
-    source              TEXT NOT NULL DEFAULT 'manual',   -- 'osm' | 'brisa' | 'manual'
+    geom                GEOMETRY(Geometry, 4326) NOT NULL,  -- PostGIS
+    source              TEXT NOT NULL DEFAULT 'manual',   -- 'osm' | 'brisa' | 'manual' | 'portoDigital'
+    source_version      TEXT NOT NULL,               -- e.g.: version or date of the source published
     is_active           BOOLEAN NOT NULL DEFAULT TRUE,
-    osm_id              BIGINT,                        -- original OSM reference
     loaded_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -189,7 +188,7 @@ CREATE TABLE inference_logs (
 
     -- Final pipeline decision
     final_decision              model_decision NOT NULL DEFAULT 'uncertain',
-    final_confidence            NUMERIC(5,4),
+    final_confidence            NUMERIC(5,4)
 );
 
 CREATE INDEX idx_inference_logs_session ON inference_logs(session_id);
@@ -274,16 +273,14 @@ CREATE UNIQUE INDEX idx_model_versions_active
 -- View: model performance by session
 CREATE OR REPLACE VIEW v_model_performance AS
 SELECT
-    il.inferred_at::DATE                        AS date,
     il.final_decision,
     tl.location_type                            AS true_label,
     (il.final_decision = 'charge' AND tl.location_type IN ('street_paid')) AS model_was_correct,
     COUNT(*)                                    AS count,
-    AVG(il.final_confidence)                    AS avg_confidence,
-    AVG(il.total_latency_ms)                    AS avg_latency_ms
+    AVG(il.final_confidence)                    AS avg_confidence
 FROM inference_logs il
 LEFT JOIN training_labels tl ON tl.session_id = il.session_id
-GROUP BY 1, 2, 3, 4;
+GROUP BY 1, 2, 3;
 
 -- View: session distribution by type and city
 CREATE OR REPLACE VIEW v_session_summary AS
@@ -306,15 +303,16 @@ GROUP BY 1, 2, 3;
 -- View: errors by paid zone (to identify problematic zones)
 CREATE OR REPLACE VIEW v_zone_error_rate AS
 SELECT
-    pz.zone_name,
+    pz.id                                       AS paid_zone_id,
     pz.city,
     COUNT(il.id)                                AS total_inferences,
-    COUNT(*) FILTER (WHERE il.model_was_correct = FALSE) AS errors,
+    COUNT(*) FILTER (WHERE tl.model_was_correct = FALSE) AS errors,
     ROUND(
-        COUNT(*) FILTER (WHERE il.model_was_correct = FALSE)::NUMERIC
+        COUNT(*) FILTER (WHERE tl.model_was_correct = FALSE)::NUMERIC
         / NULLIF(COUNT(il.id), 0) * 100, 2
     )                                           AS error_rate_pct
 FROM paid_zones pz
 LEFT JOIN inference_logs il ON il.spatial_zone_id = pz.id
-GROUP BY pz.id, pz.zone_name, pz.city
+LEFT JOIN training_labels tl ON tl.session_id = il.session_id
+GROUP BY pz.id, pz.city
 ORDER BY error_rate_pct DESC NULLS LAST;
