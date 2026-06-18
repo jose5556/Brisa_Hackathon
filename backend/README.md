@@ -5,19 +5,11 @@ This backend predicts whether a sensor window corresponds to a street-level or n
 ## Requirements
 
 - Python 3.11+
-- Docker Compose (for the PostgreSQL database)
+- Docker Compose for the PostgreSQL/PostGIS database
 - A working virtual environment in `backend/venv`
+- OpenSSL if you want to run the API over HTTPS locally
 
 ## Fastest setup with Makefile
-
-From the project root:
-
-```bash
-make -C backend venv
-make -C backend install
-make -C backend up
-make -C backend train
-```
 
 From inside the backend folder:
 
@@ -25,54 +17,51 @@ From inside the backend folder:
 make venv
 make install
 make up
+make db-init
 make train
 ```
 
 ## Run the API
 
-From the backend folder, use the Makefile target:
+From inside the backend folder, use one of these targets:
 
 ```bash
 make api
 ```
 
-If you are at the project root instead, use:
+`make api` starts the server over HTTPS by default. It generates a self-signed development certificate in `certs/`.
 
-```bash
-make -C backend api
-```
+The server is available on:
 
-This starts the FastAPI server on:
-
-- http://localhost:8000/health
-- http://localhost:8000/docs
+- https://localhost:8000/health
+- https://localhost:8000/docs
 
 ## Run the tests
 
-From the backend folder:
+From inside the backend folder:
 
 ```bash
 make test
 ```
 
-From the project root:
+## Database helpers
 
-```bash
-make -C backend test
-```
-
-## Test the database connection
+From inside the backend folder:
 
 ```bash
 make db-test
+make db-init
+make db-reset
+make db-shell
 ```
+
+`make db-init` loads the schema from `data/schema.sql` into the running database.
 
 ## If the virtual environment is broken
 
 If `pip` fails with “required file not found”, recreate the environment:
 
 ```bash
-cd backend
 rm -rf venv
 python3 -m venv venv
 source venv/bin/activate
