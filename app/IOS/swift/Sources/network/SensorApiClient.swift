@@ -121,7 +121,6 @@ window.gpsReadings.append(GpsReading(
     speedMps: 1.2, hasSignal: true
 ))
 window.pressureReadings.append(PressureReading(hPa: 1012.3))
-window.motionSamples.append(MotionSample(ax: 0.02, ay: 0.01, az: 9.81))
 window.magneticReadings.append(MagneticReading(x: 22.1, y: -14.3, z: 38.5))
 
 // 2. Extrai features e envia

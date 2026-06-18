@@ -207,8 +207,6 @@ extension SensorWindow {
             .map { abs($1 - $0) }.reduce(0, +)
 
         // ── Barómetro ─────────────────────────────────
-        let pressureDelta:    Double
-        let pressureSlope:    Double
         let pressureHpa:      Double
         let pressureDeltaHpa: Double
         let pressureVariance: Double
@@ -216,17 +214,15 @@ extension SensorWindow {
 
         if pressureReadings.count >= 2 {
             let hPaValues = pressureReadings.map { Double($0.hPa) }
+            let pressureDelta = (hPaValues.last ?? 0) - (hPaValues.first ?? 0)
             pressureHpa      = hPaValues.mean
-            pressureDelta    = (hPaValues.last ?? 0) - (hPaValues.first ?? 0)
-            pressureSlope    = pressureDelta / Double(pressureReadings.count - 1)
-            pressureDeltaHpa = pressureDelta - cityBaselinePressure
+            // Diferença entre a pressão medida e o baseline da cidade (detecta mudança de piso)
+            pressureDeltaHpa = pressureHpa - cityBaselinePressure
             pressureVariance = hPaValues.variance
             // Aproximação barométrica: ~8.5m por hPa ao nível do mar
             altitudeChangeM  = -pressureDelta * 8.5
         } else {
             pressureHpa      = pressureReadings.first.map { Double($0.hPa) } ?? 0
-            pressureDelta    = 0
-            pressureSlope    = 0
             pressureDeltaHpa = 0
             pressureVariance = 0
             altitudeChangeM  = 0
@@ -260,8 +256,6 @@ extension SensorWindow {
             gpsLostRatio:          gpsLostRatio,
             gpsSpeedMean:          gpsSpeedMean,
             gpsSpeedMax:           gpsSpeedMax,
-            pressureDelta:         pressureDelta,
-            pressureSlope:         pressureSlope,
             pressureHpa:           pressureHpa,
             pressureDeltaHpa:      pressureDeltaHpa,
             pressureVariance:      pressureVariance,
