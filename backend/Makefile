@@ -9,7 +9,7 @@ SSL_KEY_FILE ?= $(CERT_DIR)/dev-key.pem
 HOST ?= 0.0.0.0
 PORT ?= 8000
 
-.PHONY: venv install test up down api api-http cert train db-test db-init db-reset db-shell help
+.PHONY: venv install test up down api api-http cert train data db-test db-init db-reset db-shell help
 
 help:
 	@echo "Available targets:"
@@ -21,6 +21,7 @@ help:
 	@echo "  make api-http    - run the FastAPI server over HTTP for local mobile development"
 	@echo "  make up          - start the PostgreSQL container"
 	@echo "  make down        - stop the PostgreSQL container"
+	@echo "  make data        - generate synthetic training data"
 	@echo "  make db-init     - load database/schema.sql into PostgreSQL"
 	@echo "  make db-reset    - recreate the database and reload the schema"
 	@echo "  make db-shell    - open a psql shell in the database container"
@@ -33,7 +34,7 @@ venv:
 install: venv
 	. $(VENV)/bin/activate && $(PIP_VENV) install --upgrade pip && $(PIP_VENV) install -r requirements.txt
 
-train:
+train: data
 	. $(VENV)/bin/activate && $(PYTHON_VENV) scripts/train_model.py
 
 cert:
@@ -56,6 +57,9 @@ up:
 
 down:
 	docker compose down
+
+data:
+	. $(VENV)/bin/activate && $(PYTHON_VENV) scripts/generate_synthetic_data.py
 
 db-test:
 	. $(VENV)/bin/activate && $(PYTHON_VENV) ../tests/test_db_connection.py
