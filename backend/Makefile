@@ -62,7 +62,7 @@ data:
 	. $(VENV)/bin/activate && $(PYTHON_VENV) scripts/generate_synthetic_data.py
 
 db-test:
-	. $(VENV)/bin/activate && $(PYTHON_VENV) ../tests/test_db_connection.py
+	. $(VENV)/bin/activate && $(PYTHON_VENV) ../tests/back/test_db_connection.py
 
 db-init:
 	docker compose exec -T db psql -U parking_user -d parking_db < database/schema.sql
@@ -79,4 +79,4 @@ db-shell:
 	docker compose exec db psql -U parking_user -d parking_db
 
 test:
-	. $(VENV)/bin/activate && $(PYTHON_VENV) -m pytest ../tests/test_vertical_ml_predict.py
+	. $(VENV)/bin/activate && $(PYTHON_VENV) -m pytest ../tests/ml/test_vertical_ml_predict.py

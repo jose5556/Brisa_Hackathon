@@ -11,6 +11,7 @@ services:
       - "5432:5432"
     volumes:
       - parking_db_data:/var/lib/postgresql/data
+      - ./data/schema/schema.sql:/docker-entrypoint-initdb.d/10_schema.sql
 
 volumes:
-  parking_db_data:
+  parking_db_data:      
