@@ -212,7 +212,6 @@ def create_inference_log(
     session_id: str,
     payload_id: str,
     prediction: dict[str, Any],
-    latency_ms: float,
 ) -> str:
     non_street_confidence = prediction["non_street_confidence"]
 
@@ -232,7 +231,7 @@ def create_inference_log(
                 ml1_decision,
 
                 final_decision,
-                final_confidence,
+                final_confidence
             )
             VALUES (
                 :session_id,
@@ -242,7 +241,7 @@ def create_inference_log(
                 :ml1_decision,
 
                 :final_decision,
-                :final_confidence,
+                :final_confidence
             )
             RETURNING id
             """
@@ -273,14 +272,12 @@ def analyze_and_store_parking_event(
 
         start = time.perf_counter()
         prediction = predict_vertical_context(payload)
-        latency_ms = (time.perf_counter() - start) * 1000
 
         inference_id = create_inference_log(
             db=db,
             session_id=session_id,
             payload_id=payload_id,
             prediction=prediction,
-            latency_ms=latency_ms,
         )
 
         db.commit()
