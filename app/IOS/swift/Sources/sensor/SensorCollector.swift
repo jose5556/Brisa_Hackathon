@@ -37,6 +37,9 @@ final class SensorCollector: NSObject {
 
     // ── CLLocationManager (GPS) ───────────────────────
     private let locationManager = CLLocationManager()
+    private var lastLocation: CLLocation?     // última posição conhecida (para re-amostragem)
+    private var gpsResampleTimer: Timer?      // garante leituras contínuas mesmo parado
+    private var lastGpsAppendMs: Int64 = 0    // timestamp da última leitura GPS guardada
 
     // ── CMMotionManager (magnetómetro) ────────────────
     private let motionManager = CMMotionManager()
@@ -53,7 +56,9 @@ final class SensorCollector: NSObject {
         super.init()
         locationManager.delegate = self
         locationManager.desiredAccuracy = kCLLocationAccuracyBest
-        locationManager.distanceFilter  = 5   // atualiza a cada 5 metros
+        // Sem filtro de distância: queremos TODAS as atualizações, mesmo parado.
+        // (distanceFilter = 5 só reportava após 5 m de movimento → janela vazia ao parar)
+        locationManager.distanceFilter  = kCLDistanceFilterNone
     }
 
     // ─────────────────────────────────────────────────
@@ -124,6 +129,7 @@ final class SensorCollector: NSObject {
             locationManager.requestWhenInUseAuthorization()
         case .authorizedWhenInUse, .authorizedAlways:
             locationManager.startUpdatingLocation()
+            startGpsResampleTimer()
         default:
             print("[SensorCollector] Permissão de localização negada")
         }
@@ -131,6 +137,41 @@ final class SensorCollector: NSObject {
 
     private func stopGps() {
         locationManager.stopUpdatingLocation()
+        gpsResampleTimer?.invalidate()
+        gpsResampleTimer = nil
+    }
+
+    /// Timer a 1 Hz: se o Core Location parar de reportar (ex: imóvel / localização
+    /// simulada estática), re-amostra a última posição conhecida para manter a
+    /// janela deslizante sempre populada.
+    private func startGpsResampleTimer() {
+        gpsResampleTimer?.invalidate()
+        gpsResampleTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            guard let self, let location = self.lastLocation else { return }
+            // Só re-amostra se não chegou uma leitura "real" no último segundo,
+            // para não duplicar quando o GPS está mesmo a reportar.
+            if self.nowMs() - self.lastGpsAppendMs >= 1000 {
+                self.appendGps(from: location)
+            }
+        }
+    }
+
+    /// Constrói um GpsReading a partir de um CLLocation e guarda-o (thread-safe).
+    private func appendGps(from location: CLLocation) {
+        let reading = GpsReading(
+            latitude:       location.coordinate.latitude,
+            longitude:      location.coordinate.longitude,
+            accuracyMeters: Float(location.horizontalAccuracy),
+            altitudeMeters: location.altitude,
+            speedMps:       max(location.speed, 0),   // speed pode ser -1 se inválido no iOS
+            hasSignal:      location.horizontalAccuracy >= 0   // accuracy negativa = sinal inválido
+        )
+
+        lock.lock()
+        allGpsReadings.append(reading)
+        lock.unlock()
+
+        lastGpsAppendMs = nowMs()
     }
 
     // ─────────────────────────────────────────────────
@@ -245,18 +286,9 @@ extension SensorCollector: CLLocationManagerDelegate {
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let location = locations.last else { return }
 
-        let reading = GpsReading(
-            latitude:       location.coordinate.latitude,
-            longitude:      location.coordinate.longitude,
-            accuracyMeters: Float(location.horizontalAccuracy),
-            altitudeMeters: location.altitude,
-            speedMps:       max(location.speed, 0),   // speed pode ser -1 se inválido no iOS
-            hasSignal:      location.horizontalAccuracy >= 0   // accuracy negativa = sinal inválido
-        )
-
-        lock.lock()
-        allGpsReadings.append(reading)
-        lock.unlock()
+        // Guarda como última posição conhecida — o resample timer usa-a quando parado.
+        lastLocation = location
+        appendGps(from: location)
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {

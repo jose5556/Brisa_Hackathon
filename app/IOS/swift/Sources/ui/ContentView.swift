@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 // ── Cores ViaVerde ────────────────────────────────────
 // Equivalente às val VV* do Kotlin
