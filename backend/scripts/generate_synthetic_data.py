@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from pathlib import Path
 
 """ 
 gps_accuracy_mean	-> average GPS accuracy during the time window; higher value means worse location precision
@@ -203,8 +204,8 @@ def main():
     df = pd.DataFrame(samples)
     df = df.sample(frac=1, random_state=42)
 
-    df.to_csv("database/synthetic_data.csv", index=False)
-    print("Saved database/synthetic_data.csv")
+    df.to_csv("database/data_ingestion/synthetic_data.csv", index=False)
+    print("Saved database/data_ingestion/synthetic_data.csv")
 
 
 if __name__ == "__main__":

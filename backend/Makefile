@@ -65,7 +65,7 @@ db-test:
 	. $(VENV)/bin/activate && $(PYTHON_VENV) ../tests/back/test_db_connection.py
 
 db-init:
-	docker compose exec -T db psql -U parking_user -d parking_db < database/schema/schema.sql
+	docker compose exec -T db psql -v ON_ERROR_STOP=1 -U parking_user -d parking_db < database/schema/schema.sql
 
 db-reset:
 	docker compose down -v
@@ -73,7 +73,7 @@ db-reset:
 	@until docker compose exec -T db pg_isready -U parking_user -d parking_db >/dev/null 2>&1; do \
 		sleep 1; \
 	done
-	docker compose exec -T db psql -U parking_user -d parking_db < database/schema/schema.sql
+	docker compose exec -T db psql -v ON_ERROR_STOP=1 -U parking_user -d parking_db < database/schema/schema.sql
 
 db-shell:
 	docker compose exec db psql -U parking_user -d parking_db

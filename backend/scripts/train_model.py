@@ -7,7 +7,7 @@ from sklearn.metrics import classification_report
 from sklearn.model_selection import train_test_split
 
 BASE_DIR = Path(__file__).resolve().parents[1]
-DATA_PATH = BASE_DIR / "database" / "synthetic_data.csv"
+DATA_PATH = BASE_DIR / "database" / "data_ingestion" / "synthetic_data.csv"
 MODEL_PATH = BASE_DIR / "models" / "vertical_context_rf.joblib"
 
 FEATURES = [

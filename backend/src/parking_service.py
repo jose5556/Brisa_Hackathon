@@ -217,6 +217,8 @@ def create_inference_log(
     non_street_confidence = prediction["non_street_confidence"]
 
     if non_street_confidence <= 0.25:
+        final_decision = "charge"
+    else:
         final_decision = "uncertain"
 
     inference_id = db.execute(
