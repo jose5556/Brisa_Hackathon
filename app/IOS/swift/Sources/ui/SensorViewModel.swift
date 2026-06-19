@@ -43,16 +43,11 @@ final class SensorViewModel: ObservableObject {
             print("[SensorViewModel] Janela obtida — " +
                   "GPS=\(window.gpsReadings.count) " +
                   "Pressure=\(window.pressureReadings.count) " +
-                  "Motion=\(window.motionSamples.count) " +
                   "Magnetic=\(window.magneticReadings.count)")
 
-            guard let payload = window.toPayload() else {
-                uploadResult = .error(message: "GPS insuficiente — aguarda sinal e tenta novamente")
-                return
-            }
-
             do {
-                let response = try await SensorApiClient.shared.predictVerticalContext(payload: payload)
+                // O repository busca a meteorologia, calcula as features e envia para a API
+                let response = try await repository.processAndSend(window: window)
                 uploadResult = .success(
                     classification: response.classification,
                     confidence: response.nonStreetConfidence
@@ -61,6 +56,8 @@ final class SensorViewModel: ObservableObject {
                 uploadResult = .error(message: "Servidor inacessível: \(e.localizedDescription)")
             } catch SensorApiError.httpError(let code) {
                 uploadResult = .error(message: "Erro do servidor: HTTP \(code)")
+            } catch let e as SensorRepositoryError {
+                uploadResult = .error(message: e.localizedDescription)
             } catch {
                 uploadResult = .error(message: error.localizedDescription)
             }
@@ -69,5 +66,11 @@ final class SensorViewModel: ObservableObject {
 
     func resetResult() {
         uploadResult = .idle
+    }
+
+    // ── Teste rápido de ligação à BD ──────────────────
+    // Chama GET /db/health e imprime o retorno no console.
+    func testDbConnection() {
+        Task { await SensorApiClient.shared.checkDbHealth() }
     }
 }

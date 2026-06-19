@@ -5,7 +5,10 @@ import Foundation
 // private let baseURL = "http://127.0.0.1:8000/"
 //
 // Physical iPhone on same Wi-Fi as your PC:
-private let baseURL = "http://172.20.10.8:8000/"
+// private let baseURL = "http://172.20.10.8:8000/"
+//
+// Simulator (API a correr em localhost no Mac):
+private let baseURL = "http://localhost:8000/"
 
 // ── Errors ────────────────────────────────────────────
 enum SensorApiError: Error, LocalizedError {
@@ -54,6 +57,24 @@ final class SensorApiClient {
         session = URLSession(configuration: config)
         encoder = JSONEncoder()
         decoder = JSONDecoder()
+    }
+
+    // ── checkDbHealth ──────────────────────────────────
+    // Teste rápido: GET /db/health e imprime o retorno no console.
+    func checkDbHealth() async {
+        guard let url = URL(string: baseURL + "db/health") else {
+            print("[DB Health] URL inválido")
+            return
+        }
+
+        do {
+            let (data, response) = try await session.data(from: url)
+            let code = (response as? HTTPURLResponse)?.statusCode ?? -1
+            let body = String(data: data, encoding: .utf8) ?? "<sem corpo>"
+            print("[DB Health] HTTP \(code) → \(body)")
+        } catch {
+            print("[DB Health] Erro: \(error.localizedDescription)")
+        }
     }
 
     // ── predictVerticalContext ─────────────────────────
@@ -121,7 +142,6 @@ window.gpsReadings.append(GpsReading(
     speedMps: 1.2, hasSignal: true
 ))
 window.pressureReadings.append(PressureReading(hPa: 1012.3))
-window.motionSamples.append(MotionSample(ax: 0.02, ay: 0.01, az: 9.81))
 window.magneticReadings.append(MagneticReading(x: 22.1, y: -14.3, z: 38.5))
 
 // 2. Extrai features e envia
