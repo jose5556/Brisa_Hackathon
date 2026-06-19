@@ -104,8 +104,7 @@ def latest_parking_events(
                 ps.location_accuracy_m,
                 il.ml1_non_street_confidence,
                 il.final_decision,
-                il.final_confidence,
-                il.inferred_at
+                il.final_confidence
             FROM parking_sessions ps
             LEFT JOIN inference_logs il ON il.session_id = ps.id
             ORDER BY ps.created_at DESC
@@ -139,12 +138,11 @@ def get_parking_event(
                 il.ml1_non_street_confidence,
                 il.final_decision,
                 il.final_confidence,
-                il.inferred_at
             FROM parking_sessions ps
             LEFT JOIN sensor_payloads sp ON sp.session_id = ps.id
             LEFT JOIN inference_logs il ON il.session_id = ps.id
             WHERE ps.id = :session_id
-            ORDER BY il.inferred_at DESC
+            ORDER BY ps.created_at DESC
             LIMIT 1
             """
         ),
