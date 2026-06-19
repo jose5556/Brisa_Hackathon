@@ -67,4 +67,10 @@ final class SensorViewModel: ObservableObject {
     func resetResult() {
         uploadResult = .idle
     }
+
+    // ── Teste rápido de ligação à BD ──────────────────
+    // Chama GET /db/health e imprime o retorno no console.
+    func testDbConnection() {
+        Task { await SensorApiClient.shared.checkDbHealth() }
+    }
 }

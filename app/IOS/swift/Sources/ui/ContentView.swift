@@ -73,6 +73,7 @@ struct ContentView: View {
                 Divider()
                 VStack(spacing: 8) {
                     Button(action: {
+                        viewModel.testDbConnection()   // teste rápido: imprime GET /db/health no console
                         if isLoading { viewModel.resetResult() }
                         else         { viewModel.sendCurrentWindow() }
                     }) {
