@@ -1,4 +1,3 @@
-
 PYTHON ?= python3
 VENV ?= venv
 PYTHON_VENV := $(VENV)/bin/python
