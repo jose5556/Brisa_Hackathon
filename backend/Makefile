@@ -56,18 +56,15 @@ up:
 	docker compose up -d
 
 down:
-	docker compose down
 	docker compose down -v
 
 data:
 	. $(VENV)/bin/activate && $(PYTHON_VENV) scripts/generate_synthetic_data.py
 
-db-test:
-	. $(VENV)/bin/activate && $(PYTHON_VENV) ../tests/back/test_db_connection.py
-
 db-init:
 	docker compose exec -T db psql -v ON_ERROR_STOP=1 -U parking_user -d parking_db < database/schema/schema.sql
 
+# some update broke this, needs to be fixed :(
 db-reset:
 	docker compose down -v
 	docker compose up -d
@@ -79,5 +76,11 @@ db-reset:
 db-shell:
 	docker compose exec db psql -U parking_user -d parking_db
 
-test:
-	. $(VENV)/bin/activate && $(PYTHON_VENV) -m pytest ../tests/ml/test_vertical_ml_predict.py
+tests:
+	. $(VENV)/bin/activate && $(PYTHON_VENV) -m pytest ../tests
+
+db-test:
+	. $(VENV)/bin/activate && $(PYTHON_VENV) ../tests/back/test_db_connection.py
+
+db-test-api:
+	. $(VENV)/bin/activate && $(PYTHON_VENV) ../tests/back/test_api.py
