@@ -1,8 +1,13 @@
-from fastapi import FastAPI, HTTPException
+from typing import Any
+
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
+from src.database import get_db
+from src.parking_service import analyze_and_store_parking_event
 from src.vertical_ml_predict import predict_vertical_context
-from src.schemas import SensorWindow
 
 app = FastAPI(
     title="Vertical Context Detector API",
@@ -18,33 +23,133 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 @app.get("/")
 def root():
-    return {
-        "message": "Vertical Context Detector API is running"
-    }
+    return {"message": "Vertical Context Detector API is running"}
+
 
 @app.get("/health")
 def health():
-    return {
-        "status": "ok"
-    }
+    return {"status": "ok"}
+
+
+@app.get("/db/health")
+def db_health(db: Session = Depends(get_db)):
+    db.execute(text("SELECT 1"))
+    return {"status": "ok", "database": "connected"}
+
+
+@app.get("/db/schema-info")
+def db_schema_info(db: Session = Depends(get_db)):
+    tables = db.execute(
+        text(
+            """
+            SELECT tablename
+            FROM pg_catalog.pg_tables
+            WHERE schemaname = 'public'
+            ORDER BY tablename
+            """
+        )
+    ).scalars().all()
+
+    return {"status": "ok", "tables": tables}
+
 
 @app.post("/predict")
-def predict(payload: SensorWindow):
+def predict(payload: dict[str, Any]):
     try:
-        data = payload.model_dump()
-        result = predict_vertical_context(data)
-        return result
+        return predict_vertical_context(payload)
 
     except FileNotFoundError as error:
-        raise HTTPException(
-            status_code=500,
-            detail=str(error),
-        )
+        raise HTTPException(status_code=500, detail=str(error))
 
     except Exception as error:
         raise HTTPException(
             status_code=500,
             detail=f"Prediction failed: {str(error)}",
         )
+
+
+@app.post("/parking-events/analyze")
+def analyze_parking_event(
+    payload: dict[str, Any],
+    db: Session = Depends(get_db),
+):
+    try:
+        return analyze_and_store_parking_event(db, payload)
+
+    except FileNotFoundError as error:
+        raise HTTPException(status_code=500, detail=str(error))
+
+    except Exception as error:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Parking event analysis failed: {str(error)}",
+        )
+
+@app.get("/parking-events/latest")
+def latest_parking_events(
+    limit: int = 10,
+    db: Session = Depends(get_db),
+):
+    rows = db.execute(
+        text(
+            """
+            SELECT
+                ps.id AS session_id,
+                ps.city,
+                ps.status,
+                ps.detected_at,
+                ps.location_accuracy_m,
+                il.ml1_non_street_confidence,
+                il.final_decision,
+                il.final_confidence
+            FROM parking_sessions ps
+            LEFT JOIN inference_logs il ON il.session_id = ps.id
+            ORDER BY ps.created_at DESC
+            LIMIT :limit
+            """
+        ),
+        {"limit": limit},
+    ).mappings().all()
+
+    return {
+        "count": len(rows),
+        "events": [dict(row) for row in rows],
+    }
+
+@app.get("/parking-events/{session_id}")
+def get_parking_event(
+    session_id: str,
+    db: Session = Depends(get_db),
+):
+    row = db.execute(
+        text(
+            """
+            SELECT
+                ps.id AS session_id,
+                ps.city,
+                ps.status,
+                ps.detected_at,
+                ps.location_accuracy_m,
+                ST_AsGeoJSON(ps.detected_location)::json AS detected_location,
+                sp.raw_payload,
+                il.ml1_non_street_confidence,
+                il.final_decision,
+                il.final_confidence,
+            FROM parking_sessions ps
+            LEFT JOIN sensor_payloads sp ON sp.session_id = ps.id
+            LEFT JOIN inference_logs il ON il.session_id = ps.id
+            WHERE ps.id = :session_id
+            ORDER BY ps.created_at DESC
+            LIMIT 1
+            """
+        ),
+        {"session_id": session_id},
+    ).mappings().first()
+
+    if row is None:
+        raise HTTPException(status_code=404, detail="Parking event not found")
+
+    return dict(row)
