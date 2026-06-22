@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ViaVerde iOS</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #1a1a1a;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+      padding: 40px 20px;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+      gap: 40px;
+    }
+
+    .phone {
+      width: 390px;
+      background: #000;
+      border-radius: 48px;
+      border: 6px solid #333;
+      overflow: hidden;
+      box-shadow: 0 30px 80px rgba(0,0,0,0.8);
+      flex-shrink: 0;
+    }
+
+    .screen { display: none; }
+    .screen.active { display: block; }
+
+    .status-bar {
+      padding: 14px 24px 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      color: #fff;
+    }
+
+    /* ═══════════════════════════
+       MAIN SCREEN
+    ═══════════════════════════ */
+    #main .status-bar { background: #1F8018; }
+
+    .main-header {
+      background: linear-gradient(180deg, #1F8018, #2DB022);
+      padding: 10px 24px 28px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+    }
+
+    .dev-btn {
+      position: absolute;
+      top: 10px;
+      right: 16px;
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 8px;
+      color: #fff;
+      font-size: 10px;
+      font-weight: bold;
+      letter-spacing: 1px;
+      padding: 4px 10px;
+      cursor: pointer;
+    }
+    .dev-btn:hover { background: rgba(255,255,255,0.25); }
+
+    .logo-box {
+      width: 56px; height: 56px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.15);
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 10px;
+      font-size: 22px; color: #fff; font-weight: 900;
+    }
+
+    .main-title { color: #fff; font-size: 22px; font-weight: 900; letter-spacing: 3px; }
+    .main-subtitle { color: rgba(255,255,255,0.7); font-size: 11px; font-weight: 600; letter-spacing: 2px; margin-top: 2px; }
+
+    .main-body {
+      background: #F7F8F7;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      min-height: 560px;
+    }
+
+    .card { background: #fff; border-radius: 14px; border: 1px solid #E0EDE0; padding: 16px; }
+    .card-label { font-size: 10px; font-weight: 700; color: #2DB022; letter-spacing: 1.5px; margin-bottom: 6px; }
+    .card-row { display: flex; justify-content: space-between; align-items: center; }
+    .card-text { font-size: 14px; font-weight: 500; color: #1A1A1A; }
+
+    .tag { border-radius: 20px; padding: 3px 10px; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; }
+    .tag.idle { background: rgba(45,176,34,0.12); color: #2DB022; }
+
+    .sensor-label { font-size: 10px; font-weight: 700; color: #888; letter-spacing: 1.5px; margin-bottom: 8px; }
+
+    .sensor-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+
+    .sensor-chip {
+      background: #fff; border: 1px solid #E0EDE0; border-radius: 12px;
+      padding: 10px 6px; display: flex; flex-direction: column; align-items: center; gap: 6px;
+    }
+
+    .sensor-dot { width: 8px; height: 8px; border-radius: 50%; background: #2DB022; }
+    .sensor-name { font-size: 11px; font-weight: 700; color: #1A1A1A; text-align: center; }
+    .sensor-sub { font-size: 9px; color: #888; text-align: center; }
+    .spacer { flex: 1; }
+
+    .main-btn {
+      background: #2DB022; border-radius: 14px; padding: 18px;
+      text-align: center; cursor: pointer; color: #fff;
+      font-size: 14px; font-weight: 700; letter-spacing: 1px;
+    }
+    .main-btn:hover { background: #1F8018; }
+
+    /* ═══════════════════════════
+       LOGS SCREEN
+    ═══════════════════════════ */
+    #logs { font-family: 'SF Mono', 'Fira Mono', 'Courier New', monospace; }
+    #logs .status-bar { background: #000; }
+
+    .logs-header {
+      background: #0d0d0d;
+      border-bottom: 1px solid #2DB022;
+      padding: 10px 16px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+
+    .logs-back { color: #2DB022; font-size: 12px; font-weight: bold; cursor: pointer; }
+    .logs-title { color: #fff; font-size: 12px; font-weight: bold; letter-spacing: 1.5px; }
+    .logs-clear { color: #ff4444; font-size: 11px; font-weight: bold; cursor: pointer; }
+
+    .live-bar {
+      background: #0d0d0d; padding: 6px 16px;
+      display: flex; justify-content: space-between; align-items: center;
+      border-bottom: 1px solid #1a1a1a;
+    }
+
+    .live-dot { display: flex; align-items: center; gap: 6px; font-size: 10px; color: #2DB022; font-weight: bold; letter-spacing: 1px; }
+
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: #2DB022; animation: pulse 1.2s infinite; }
+
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+    .timestamp { font-size: 10px; color: #555; }
+
+    .scroll-area {
+      height: 680px; overflow-y: auto; background: #000; padding: 8px 0;
+    }
+    .scroll-area::-webkit-scrollbar { width: 3px; }
+    .scroll-area::-webkit-scrollbar-track { background: #000; }
+    .scroll-area::-webkit-scrollbar-thumb { background: #2DB022; border-radius: 2px; }
+
+    /* Active sensors strip */
+    .active-sensors { padding: 10px 16px; border-bottom: 1px solid #111; }
+    .active-sensors-label { font-size: 9px; color: #444; letter-spacing: 1.5px; margin-bottom: 8px; }
+    .active-sensors-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+
+    .active-chip {
+      background: #0d0d0d; border: 1px solid #1a2a1a; border-radius: 8px;
+      padding: 6px 4px; display: flex; flex-direction: column; align-items: center; gap: 4px;
+    }
+    .active-chip.inactive { border-color: #2a1a1a; }
+    .active-chip-dot { width: 5px; height: 5px; border-radius: 50%; background: #2DB022; }
+    .active-chip.inactive .active-chip-dot { background: #ff4444; }
+    .active-chip-name { font-size: 9px; color: #888; text-align: center; }
+    .active-chip-val { font-size: 8px; color: #444; text-align: center; }
+
+    /* ── Outer sections (pipeline steps) ── */
+    .section { border-bottom: 1px solid #111; }
+
+    .section-header {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 16px; cursor: pointer; user-select: none; background: #0a0a0a;
+    }
+    .section-header:hover { background: #111; }
+
+    .section-arrow { color: #2DB022; font-size: 10px; transition: transform 0.2s; width: 10px; }
+    .section-arrow.collapsed { transform: rotate(-90deg); }
+
+    .section-title { color: #2DB022; font-size: 10px; font-weight: bold; letter-spacing: 2px; flex: 1; }
+    .section-badge { font-size: 9px; color: #444; letter-spacing: 0.5px; }
+
+    .section-body { overflow: hidden; }
+    .section-body.collapsed { display: none; }
+
+    /* ── Inner sub-groups (collapsible within a section) ── */
+    .sub-group { border-top: 1px solid #111; }
+
+    .sub-header {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 16px 6px 24px;
+      cursor: pointer; user-select: none;
+      background: #050505;
+    }
+    .sub-header:hover { background: #0d0d0d; }
+
+    .sub-arrow { color: #444; font-size: 9px; transition: transform 0.2s; width: 8px; }
+    .sub-arrow.collapsed { transform: rotate(-90deg); }
+
+    .sub-title { color: #666; font-size: 9px; font-weight: bold; letter-spacing: 1.5px; flex: 1; }
+    .sub-badge { font-size: 8px; color: #333; }
+
+    .sub-body { padding: 6px 16px 10px 28px; overflow: hidden; }
+    .sub-body.collapsed { display: none; }
+
+    /* Data rows */
+    .data-row { display: flex; justify-content: space-between; align-items: baseline; padding: 2px 0; }
+    .data-key { color: #666; font-size: 10px; }
+    .data-val { color: #e0e0e0; font-size: 10px; }
+    .data-val.highlight { color: #2DB022; }
+
+    .array-row { padding: 2px 0; }
+    .array-key { color: #555; font-size: 10px; }
+    .array-val { color: #888; font-size: 10px; word-break: break-all; }
+
+    /* JSON block */
+    .json-block {
+      background: #0a0a0a; border: 1px solid #1a1a1a;
+      border-radius: 6px; padding: 8px 10px; margin-top: 6px;
+    }
+    .json-line { font-size: 10px; line-height: 1.6; }
+    .json-brace { color: #888; }
+    .json-key { color: #7ec8e3; }
+    .json-val { color: #e0e0e0; }
+
+    .post-line { font-size: 10px; color: #555; margin-bottom: 6px; padding: 8px 16px 0; }
+    .post-line span { color: #2DB022; }
+
+    /* Model response */
+    .response-entry { margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid #111; }
+    .response-entry:last-child { border-bottom: none; margin-bottom: 0; }
+
+    .response-meta { display: flex; gap: 10px; align-items: center; margin-bottom: 6px; }
+    .response-time { color: #555; font-size: 10px; }
+    .response-status { color: #2DB022; font-size: 10px; font-weight: bold; }
+    .response-latency { color: #444; font-size: 10px; }
+
+    .response-row { display: flex; justify-content: space-between; padding: 2px 0; }
+    .response-key { color: #666; font-size: 10px; }
+    .response-val { color: #e0e0e0; font-size: 10px; }
+    .response-val.street { color: #2DB022; }
+    .response-val.underground { color: #ff9800; }
+
+    .confidence-bar { margin-top: 6px; display: flex; align-items: center; gap: 8px; }
+    .bar-track { flex: 1; height: 4px; background: #1a1a1a; border-radius: 2px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 2px; background: #2DB022; }
+    .bar-fill.high { background: #ff9800; }
+    .bar-pct { font-size: 10px; color: #555; width: 30px; text-align: right; }
+
+    .model-body { padding: 8px 16px 12px; }
+  </style>
+</head>
+<body>
+
+<div class="phone">
+
+  <!-- ═══════ MAIN SCREEN ═══════ -->
+  <div id="main" class="screen active">
+    <div class="status-bar">
+      <span>9:41</span><span>&#9679;&#9679;&#9679;</span><span>100%</span>
+    </div>
+
+    <div class="main-header">
+      <button class="dev-btn" onclick="goTo('logs')">DEV</button>
+      <div class="logo-box">VV</div>
+      <div class="main-title">VIA VERDE</div>
+      <div class="main-subtitle">CONTEXT DETECTION</div>
+    </div>
+
+    <div class="main-body">
+      <div class="card">
+        <div class="card-label">ESTADO</div>
+        <div class="card-row">
+          <span class="card-text">Pronto para recolher dados</span>
+          <span class="tag idle">Idle</span>
+        </div>
+      </div>
+
+      <div>
+        <div class="sensor-label">SENSORES ATIVOS</div>
+        <div class="sensor-grid">
+          <div class="sensor-chip"><div class="sensor-dot"></div><div class="sensor-name">GPS</div><div class="sensor-sub">Localizacao</div></div>
+          <div class="sensor-chip"><div class="sensor-dot"></div><div class="sensor-name">Bar.</div><div class="sensor-sub">Pressao</div></div>
+          <div class="sensor-chip"><div class="sensor-dot"></div><div class="sensor-name">IMU</div><div class="sensor-sub">Movimento</div></div>
+          <div class="sensor-chip"><div class="sensor-dot"></div><div class="sensor-name">Mag.</div><div class="sensor-sub">Campo</div></div>
+        </div>
+      </div>
+
+      <div class="spacer"></div>
+      <div class="main-btn">&#9654;  ANALISAR AMBIENTE</div>
+    </div>
+  </div>
+
+  <!-- ═══════ LOGS SCREEN ═══════ -->
+  <div id="logs" class="screen">
+    <div class="status-bar" style="background:#000">
+      <span>9:41</span><span>&#9679;&#9679;&#9679;</span><span>100%</span>
+    </div>
+
+    <div class="logs-header">
+      <span class="logs-back" onclick="goTo('main')">&#8249; Back</span>
+      <span class="logs-title">SENSOR LOGS</span>
+      <span class="logs-clear">CLEAR</span>
+    </div>
+
+    <div class="live-bar">
+      <div class="live-dot"><div class="dot"></div>LIVE</div>
+      <span class="timestamp">14:32:05</span>
+    </div>
+
+    <div class="scroll-area">
+
+      <!-- Active sensors strip -->
+      <div class="active-sensors">
+        <div class="active-sensors-label">SENSORES ATIVOS</div>
+        <div class="active-sensors-grid">
+          <div class="active-chip"><div class="active-chip-dot"></div><div class="active-chip-name">GPS</div><div class="active-chip-val">12 leit.</div></div>
+          <div class="active-chip"><div class="active-chip-dot"></div><div class="active-chip-name">BAR.</div><div class="active-chip-val">8 leit.</div></div>
+          <div class="active-chip"><div class="active-chip-dot"></div><div class="active-chip-name">IMU</div><div class="active-chip-val">24 amst.</div></div>
+          <div class="active-chip"><div class="active-chip-dot"></div><div class="active-chip-name">MAG.</div><div class="active-chip-val">12 leit.</div></div>
+          <div class="active-chip inactive"><div class="active-chip-dot"></div><div class="active-chip-name">Wi-Fi</div><div class="active-chip-val">N/A</div></div>
+        </div>
+      </div>
+
+      <!-- ── SECTION 1: RAW ── -->
+      <div class="section">
+        <div class="section-header" onclick="toggleSection(this)">
+          <span class="section-arrow">&#9660;</span>
+          <span class="section-title">RAW SENSOR WINDOW</span>
+          <span class="section-badge">4 sources</span>
+        </div>
+        <div class="section-body">
+
+          <!-- GPS -->
+          <div class="sub-group">
+            <div class="sub-header" onclick="toggleSub(this)">
+              <span class="sub-arrow">&#9660;</span>
+              <span class="sub-title">GPS</span>
+              <span class="sub-badge">12 readings</span>
+            </div>
+            <div class="sub-body">
+              <div class="data-row"><span class="data-key">lat</span><span class="data-val">41.14961</span></div>
+              <div class="data-row"><span class="data-key">lon</span><span class="data-val">-8.61099</span></div>
+              <div class="array-row"><div class="array-key">acc (m)</div><div class="array-val">[5.0, 6.0, 5.0, 8.0, 7.0, 6.0, 5.0, 6.0, 7.0, 5.0, 6.0, 8.0]</div></div>
+              <div class="array-row"><div class="array-key">alt (m)</div><div class="array-val">[120.1, 120.2, 120.0, 120.3, 120.1, 120.2, 120.0, 120.1, 120.2, 120.0, 120.1, 120.2]</div></div>
+              <div class="array-row"><div class="array-key">spd (m/s)</div><div class="array-val">[0.0, 0.1, 0.0, 0.0, 0.1, 0.0, 0.0, 0.0, 0.1, 0.0, 0.0, 0.0]</div></div>
+            </div>
+          </div>
+
+          <!-- Barometer -->
+          <div class="sub-group">
+            <div class="sub-header" onclick="toggleSub(this)">
+              <span class="sub-arrow">&#9660;</span>
+              <span class="sub-title">BAROMETER</span>
+              <span class="sub-badge">8 readings</span>
+            </div>
+            <div class="sub-body">
+              <div class="array-row"><div class="array-key">hPa</div><div class="array-val">[1013.0, 1012.9, 1012.8, 1012.7, 1012.6, 1012.5, 1012.5, 1012.4]</div></div>
+            </div>
+          </div>
+
+          <!-- Motion -->
+          <div class="sub-group">
+            <div class="sub-header" onclick="toggleSub(this)">
+              <span class="sub-arrow">&#9660;</span>
+              <span class="sub-title">MOTION</span>
+              <span class="sub-badge">24 samples</span>
+            </div>
+            <div class="sub-body">
+              <div class="array-row"><div class="array-key">ax</div><div class="array-val">[0.1, 0.2, 0.1, 0.0, 0.1, 0.2, 0.1, 0.0...]</div></div>
+              <div class="array-row"><div class="array-key">ay</div><div class="array-val">[0.0, 0.1, 0.0, 0.1, 0.0, 0.0, 0.1, 0.0...]</div></div>
+              <div class="array-row"><div class="array-key">az</div><div class="array-val">[9.8, 9.8, 9.7, 9.8, 9.8, 9.7, 9.8, 9.8...]</div></div>
+            </div>
+          </div>
+
+          <!-- Magnetometer -->
+          <div class="sub-group">
+            <div class="sub-header" onclick="toggleSub(this)">
+              <span class="sub-arrow">&#9660;</span>
+              <span class="sub-title">MAGNETOMETER</span>
+              <span class="sub-badge">12 readings</span>
+            </div>
+            <div class="sub-body">
+              <div class="array-row"><div class="array-key">mag (µT)</div><div class="array-val">[48.1, 48.3, 48.2, 48.4, 48.2, 48.1, 48.3, 48.2, 48.4, 48.1, 48.2, 48.3]</div></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ── SECTION 2: FEATURES ── -->
+      <div class="section">
+        <div class="section-header" onclick="toggleSection(this)">
+          <span class="section-arrow">&#9660;</span>
+          <span class="section-title">FEATURE EXTRACTOR</span>
+          <span class="section-badge">17 features</span>
+        </div>
+        <div class="section-body">
+
+          <!-- GPS features -->
+          <div class="sub-group">
+            <div class="sub-header" onclick="toggleSub(this)">
+              <span class="sub-arrow">&#9660;</span>
+              <span class="sub-title">GPS</span>
+              <span class="sub-badge">6 features</span>
+            </div>
+            <div class="sub-body">
+              <div class="data-row"><span class="data-key">gps_accuracy_mean</span><span class="data-val">6.25</span></div>
+              <div class="data-row"><span class="data-key">gps_accuracy_max</span><span class="data-val">8.00</span></div>
+              <div class="data-row"><span class="data-key">gps_accuracy_delta</span><span class="data-val">3.00</span></div>
+              <div class="data-row"><span class="data-key">gps_lost_ratio</span><span class="data-val">0.00</span></div>
+              <div class="data-row"><span class="data-key">gps_speed_mean</span><span class="data-val">0.04 m/s</span></div>
+              <div class="data-row"><span class="data-key">gps_speed_max</span><span class="data-val">0.10 m/s</span></div>
+            </div>
+          </div>
+
+          <!-- Barometer features -->
+          <div class="sub-group">
+            <div class="sub-header" onclick="toggleSub(this)">
+              <span class="sub-arrow">&#9660;</span>
+              <span class="sub-title">BAROMETER</span>
+              <span class="sub-badge">2 features</span>
+            </div>
+            <div class="sub-body">
+              <div class="data-row"><span class="data-key">pressure_delta</span><span class="data-val">-0.60 hPa</span></div>
+              <div class="data-row"><span class="data-key">pressure_slope</span><span class="data-val">-0.06 hPa/s</span></div>
+            </div>
+          </div>
+
+          <!-- Motion features -->
+          <div class="sub-group">
+            <div class="sub-header" onclick="toggleSub(this)">
+              <span class="sub-arrow">&#9660;</span>
+              <span class="sub-title">MOTION</span>
+              <span class="sub-badge">1 feature</span>
+            </div>
+            <div class="sub-body">
+              <div class="data-row"><span class="data-key">stationary_ratio</span><span class="data-val highlight">0.91</span></div>
+            </div>
+          </div>
+
+          <!-- Altitude features -->
+          <div class="sub-group">
+            <div class="sub-header" onclick="toggleSub(this)">
+              <span class="sub-arrow">&#9660;</span>
+              <span class="sub-title">ALTITUDE</span>
+              <span class="sub-badge">2 features</span>
+            </div>
+            <div class="sub-body">
+              <div class="data-row"><span class="data-key">altitude_delta</span><span class="data-val">0.10 m</span></div>
+              <div class="data-row"><span class="data-key">vertical_change_abs</span><span class="data-val">0.30 m</span></div>
+            </div>
+          </div>
+
+          <!-- Magnetometer features -->
+          <div class="sub-group">
+            <div class="sub-header" onclick="toggleSub(this)">
+              <span class="sub-arrow">&#9660;</span>
+              <span class="sub-title">MAGNETOMETER</span>
+              <span class="sub-badge">4 features</span>
+            </div>
+            <div class="sub-body">
+              <div class="data-row"><span class="data-key">magnetic_field_mean</span><span class="data-val">48.23 µT</span></div>
+              <div class="data-row"><span class="data-key">magnetic_field_max</span><span class="data-val">48.40 µT</span></div>
+              <div class="data-row"><span class="data-key">magnetic_field_delta</span><span class="data-val">0.20 µT</span></div>
+              <div class="data-row"><span class="data-key">magnetic_field_var</span><span class="data-val">0.01</span></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ── SECTION 3: PAYLOAD ── -->
+      <div class="section">
+        <div class="section-header" onclick="toggleSection(this)">
+          <span class="section-arrow">&#9660;</span>
+          <span class="section-title">PAYLOAD SENT</span>
+          <span class="section-badge">14:32:05</span>
+        </div>
+        <div class="section-body">
+          <div class="post-line">POST <span>http://172.20.10.8:8000/predict</span></div>
+          <div style="padding: 0 16px 12px">
+            <div class="json-block">
+              <div class="json-line"><span class="json-brace">{</span></div>
+              <div class="json-line">&nbsp;&nbsp;<span class="json-key">"gps_accuracy_mean"</span><span class="json-brace">: </span><span class="json-val">6.25,</span></div>
+              <div class="json-line">&nbsp;&nbsp;<span class="json-key">"gps_accuracy_max"</span><span class="json-brace">: </span><span class="json-val">8.00,</span></div>
+              <div class="json-line">&nbsp;&nbsp;<span class="json-key">"gps_accuracy_delta"</span><span class="json-brace">: </span><span class="json-val">3.00,</span></div>
+              <div class="json-line">&nbsp;&nbsp;<span class="json-key">"gps_lost_ratio"</span><span class="json-brace">: </span><span class="json-val">0.00,</span></div>
+              <div class="json-line">&nbsp;&nbsp;<span class="json-key">"gps_speed_mean"</span><span class="json-brace">: </span><span class="json-val">0.04,</span></div>
+              <div class="json-line">&nbsp;&nbsp;<span class="json-key">"gps_speed_max"</span><span class="json-brace">: </span><span class="json-val">0.10,</span></div>
+              <div class="json-line">&nbsp;&nbsp;<span class="json-key">"pressure_delta"</span><span class="json-brace">: </span><span class="json-val">-0.60,</span></div>
+              <div class="json-line">&nbsp;&nbsp;<span class="json-key">"pressure_slope"</span><span class="json-brace">: </span><span class="json-val">-0.06,</span></div>
+              <div class="json-line">&nbsp;&nbsp;<span class="json-key">"stationary_ratio"</span><span class="json-brace">: </span><span class="json-val">0.91,</span></div>
+              <div class="json-line">&nbsp;&nbsp;<span class="json-key">"altitude_delta"</span><span class="json-brace">: </span><span class="json-val">0.10,</span></div>
+              <div class="json-line">&nbsp;&nbsp;<span class="json-key">"vertical_change_abs"</span><span class="json-brace">: </span><span class="json-val">0.30,</span></div>
+              <div class="json-line">&nbsp;&nbsp;<span class="json-key">"magnetic_field_mean"</span><span class="json-brace">: </span><span class="json-val">48.23,</span></div>
+              <div class="json-line">&nbsp;&nbsp;<span class="json-key">"magnetic_field_max"</span><span class="json-brace">: </span><span class="json-val">48.40,</span></div>
+              <div class="json-line">&nbsp;&nbsp;<span class="json-key">"magnetic_field_delta"</span><span class="json-brace">: </span><span class="json-val">0.20,</span></div>
+              <div class="json-line">&nbsp;&nbsp;<span class="json-key">"magnetic_field_variance"</span><span class="json-brace">: </span><span class="json-val">0.01</span></div>
+              <div class="json-line"><span class="json-brace">}</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── SECTION 4: MODEL ── -->
+      <div class="section">
+        <div class="section-header" onclick="toggleSection(this)">
+          <span class="section-arrow">&#9660;</span>
+          <span class="section-title">MODEL RESPONSE</span>
+          <span class="section-badge">3 calls</span>
+        </div>
+        <div class="section-body">
+          <div class="model-body">
+
+            <div class="response-entry">
+              <div class="response-meta">
+                <span class="response-time">14:32:05</span>
+                <span class="response-status">200 OK</span>
+                <span class="response-latency">312ms</span>
+              </div>
+              <div class="response-row"><span class="response-key">classification</span><span class="response-val street">street_level</span></div>
+              <div class="response-row"><span class="response-key">non_street_confidence</span><span class="response-val">0.08</span></div>
+              <div class="confidence-bar">
+                <div class="bar-track"><div class="bar-fill" style="width:8%"></div></div>
+                <span class="bar-pct">8%</span>
+              </div>
+            </div>
+
+            <div class="response-entry">
+              <div class="response-meta">
+                <span class="response-time">14:28:11</span>
+                <span class="response-status">200 OK</span>
+                <span class="response-latency">298ms</span>
+              </div>
+              <div class="response-row"><span class="response-key">classification</span><span class="response-val underground">underground</span></div>
+              <div class="response-row"><span class="response-key">non_street_confidence</span><span class="response-val">0.87</span></div>
+              <div class="confidence-bar">
+                <div class="bar-track"><div class="bar-fill high" style="width:87%"></div></div>
+                <span class="bar-pct">87%</span>
+              </div>
+            </div>
+
+            <div class="response-entry">
+              <div class="response-meta">
+                <span class="response-time">14:15:03</span>
+                <span class="response-status">200 OK</span>
+                <span class="response-latency">401ms</span>
+              </div>
+              <div class="response-row"><span class="response-key">classification</span><span class="response-val street">street_level</span></div>
+              <div class="response-row"><span class="response-key">non_street_confidence</span><span class="response-val">0.08</span></div>
+              <div class="confidence-bar">
+                <div class="bar-track"><div class="bar-fill" style="width:8%"></div></div>
+                <span class="bar-pct">8%</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+  function goTo(screenId) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(screenId).classList.add('active');
+  }
+
+  function toggleSection(header) {
+    const arrow = header.querySelector('.section-arrow');
+    const body = header.nextElementSibling;
+    const collapsed = body.classList.toggle('collapsed');
+    arrow.classList.toggle('collapsed', collapsed);
+  }
+
+  function toggleSub(header) {
+    const arrow = header.querySelector('.sub-arrow');
+    const body = header.nextElementSibling;
+    const collapsed = body.classList.toggle('collapsed');
+    arrow.classList.toggle('collapsed', collapsed);
+  }
+</script>
+
+</body>
+</html>
