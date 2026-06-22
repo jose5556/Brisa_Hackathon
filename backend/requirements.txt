@@ -13,3 +13,4 @@ geopandas
 shapely
 psycopg2-binary
 geoalchemy2
+httpx2
