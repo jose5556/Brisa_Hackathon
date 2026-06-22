@@ -104,7 +104,7 @@ curl -X POST http://localhost:8000/parking-events/analyze \
 Example for underground:
 
 ```bash
-curl -k -X POST https://localhost:8000/parking-events/analyze \
+curl -k -X POST http://localhost:8000/parking-events/analyze \
   -H "Content-Type: application/json" \
   -d '{
     "gps_accuracy_mean": 67.4,
