@@ -9,7 +9,7 @@ SSL_KEY_FILE ?= $(CERT_DIR)/dev-key.pem
 HOST ?= 0.0.0.0
 PORT ?= 8000
 
-.PHONY: venv install test up down api api-http cert train data db-test db-init db-reset db-shell help
+.PHONY: venv install tests up down api api-http cert train data db-test db-init db-reset db-shell help
 
 help:
 	@echo "Available targets:"
