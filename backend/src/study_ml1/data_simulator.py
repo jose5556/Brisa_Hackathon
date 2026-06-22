@@ -19,28 +19,24 @@ def generate_nightmare_urban_data(n_samples=5000):
         time_of_day = random.choice(time_options)
         city_baseline_pressure = np.random.uniform(990.0, 1018.0)
         
-        # Ruído base gigante em todos os telemóveis
+        # Massive base noise on all mobile devices
         hardware_noise_pressure = np.random.normal(0.0, 0.15)
         
         if label_name == 'street_level':
-            # 40% Ruas muito íngremes (parecem rampas de garagem longas)
             is_steep_slope = np.random.rand() < 0.40
             pressure_delta_hpa = np.random.normal(0.0, 1.5) if is_steep_slope else np.random.normal(0.0, 0.2)
             pressure_variance = np.random.uniform(0.05, 0.8) if is_steep_slope else np.random.uniform(0.01, 0.15)
             
-            # 40% Distorção Magnética Severa
             has_magnetic_anomaly = np.random.rand() < 0.40
             mag_variance_total = np.random.normal(50.0, 30.0) if has_magnetic_anomaly else np.random.normal(25.0, 15.0)
             mag_distortion_score = np.random.normal(0.5, 0.3)
             
-            # 35% Perda Severa de GPS na rua (Cânions, árvores, nuvens)
             gnss_signal_drop = np.random.rand() < 0.35
             gnss_accuracy_m = np.random.normal(45.0, 20.0) if gnss_signal_drop else np.random.normal(12.0, 8.0)
             hdop = np.random.normal(8.0, 4.0) if gnss_signal_drop else np.random.normal(2.0, 1.5)
             satellite_count = int(np.random.normal(3, 2)) if gnss_signal_drop else int(np.random.normal(12, 5))
             
         elif label_name == 'underground':
-            # 40% Garagens muito rasas / planas no início
             is_shallow = np.random.rand() < 0.40
             floors_down = np.random.uniform(0.05, 0.5) if is_shallow else np.random.uniform(1.0, 3.5)
             pressure_delta_hpa = floors_down * 0.36 + np.random.normal(0, 0.2)
@@ -48,8 +44,7 @@ def generate_nightmare_urban_data(n_samples=5000):
             
             mag_variance_total = np.random.normal(70.0, 25.0)
             mag_distortion_score = np.random.normal(0.7, 0.2)
-            
-            # 40% GPS sobrevive (Aberturas laterais, perto da entrada)
+
             gps_survives = np.random.rand() < 0.40
             gnss_signal_drop = False if gps_survives else True
             gnss_accuracy_m = np.random.normal(18.0, 10.0) if gps_survives else np.random.normal(60.0, 20.0)
@@ -57,7 +52,6 @@ def generate_nightmare_urban_data(n_samples=5000):
             satellite_count = int(np.random.normal(8, 4)) if gps_survives else int(np.random.normal(0, 1))
             
         else: # 'above'
-            # 50% Garagens elevadas mas a céu aberto
             is_open_rooftop = np.random.rand() < 0.50
             floors_up = np.random.uniform(0.5, 4.0)
             pressure_delta_hpa = -(floors_up * 0.36) + np.random.normal(0, 0.2)
@@ -66,13 +60,11 @@ def generate_nightmare_urban_data(n_samples=5000):
             mag_variance_total = np.random.normal(65.0, 25.0)
             mag_distortion_score = np.random.normal(0.65, 0.25)
             
-            # Sinal GPS confuso
             gnss_signal_drop = False if is_open_rooftop else True
             gnss_accuracy_m = np.random.normal(10.0, 5.0) if is_open_rooftop else np.random.normal(45.0, 15.0)
             hdop = np.random.normal(2.0, 1.0) if is_open_rooftop else np.random.normal(9.0, 2.5)
             satellite_count = int(np.random.normal(14, 4)) if is_open_rooftop else int(np.random.normal(2, 2))
 
-        # Adicionar ruído de hardware e Limites
         pressure_delta_hpa += hardware_noise_pressure
         
         mag_distortion_score = np.clip(mag_distortion_score, 0.0, 1.0)
@@ -104,7 +96,7 @@ def generate_nightmare_urban_data(n_samples=5000):
     df = pd.DataFrame(data, columns=columns)
     return df
 
-print("A gerar o NOVO dataset V4 (Modo Pesadelo - Sobreposição Extrema)...")
+print("Generating new dataset...")
 df_simulado = generate_nightmare_urban_data(5000)
 df_simulado.to_csv('sensor_payloads_simulated.csv', index=False)
-print("Dataset guardado!")
+print("Dataset saved!")
