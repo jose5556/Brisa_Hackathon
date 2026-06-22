@@ -10,8 +10,7 @@ from src.vertical_ml_predict import predict_vertical_context
 
 
 DEFAULT_CITY = "OPO"
-DEFAULT_PLATFORM = "android"
-
+DEFAULT_PLATFORM = "ios"
 
 def get_or_create_dev_user(db: Session) -> str:
     user_id = db.execute(

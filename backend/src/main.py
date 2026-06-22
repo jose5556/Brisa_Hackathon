@@ -11,7 +11,7 @@ from src.vertical_ml_predict import predict_vertical_context
 
 app = FastAPI(
     title="Vertical Context Detector API",
-    description="Receives phone sensor features and returns vertical context prediction.",
+    description="Receives phone sensor features and returns context predictions.",
     version="1.0.0",
 )
 
@@ -26,7 +26,7 @@ app.add_middleware(
 
 @app.get("/")
 def root():
-    return {"message": "Vertical Context Detector API is running"}
+    return {"message": "API is running"}
 
 
 @app.get("/health")
@@ -137,7 +137,7 @@ def get_parking_event(
                 sp.raw_payload,
                 il.ml1_non_street_confidence,
                 il.final_decision,
-                il.final_confidence,
+                il.final_confidence
             FROM parking_sessions ps
             LEFT JOIN sensor_payloads sp ON sp.session_id = ps.id
             LEFT JOIN inference_logs il ON il.session_id = ps.id
