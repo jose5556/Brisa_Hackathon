@@ -9,7 +9,7 @@ import Foundation
 
 final class SensorRepository {
 
-    func processAndSend(window: SensorWindow) async throws -> PredictionResponse {
+    func processAndSend(window: SensorWindow) async throws -> (payload: SensorPayload, response: PredictionResponse) {
 
         // ── 1. Extrai coordenadas da última leitura GPS ──
         guard let lastGps = window.gpsReadings.last, lastGps.hasSignal else {
@@ -54,7 +54,8 @@ final class SensorRepository {
         #endif
 
         // ── 4. Envia para a API de classificação ─────────
-        return try await SensorApiClient.shared.predictVerticalContext(payload: payload)
+        let response = try await SensorApiClient.shared.predictVerticalContext(payload: payload)
+        return (payload, response)
     }
 }
 
