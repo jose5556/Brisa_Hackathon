@@ -1,0 +1,16 @@
+pandas
+numpy
+scikit-learn
+joblib
+fastapi
+uvicorn
+pydantic
+pytest
+sqlalchemy
+psycopg[binary]
+python-dotenv
+geopandas
+shapely
+psycopg2-binary
+geoalchemy2
+httpx2
