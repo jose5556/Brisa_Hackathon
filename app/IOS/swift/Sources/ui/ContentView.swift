@@ -68,7 +68,7 @@ struct ContentView: View {
                 .padding(.vertical, 20)
             }
 
-            // ── Botão principal ───────────────────────
+            // ── Botão ───────────────────────
             VStack(spacing: 0) {
                 Divider()
                 VStack(spacing: 8) {

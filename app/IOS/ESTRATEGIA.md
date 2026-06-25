@@ -137,6 +137,33 @@ viva; os outros sensores vão à boleia.
 
 ---
 
+## 6. DADOS EXTRAIDOS
+
+LATITUDE
+LONGITUTE
+
+## magnetometro
+
+magnetic_field_mean (intensidade média)
+
+Ao ar livre, longe de estruturas, o campo magnético terrestre é relativamente estável (varia por região, mas tipicamente ~25-65 µT, dependendo da latitude).
+Dentro de uma garagem com pilares de betão armado, vigas metálicas, portões de aço, etc., essa intensidade tende a cair (o metal "absorve"/desvia linhas de campo) ou, em alguns pontos, a subir bruscamente (perto de uma viga de aço, por exemplo). Na prática, o efeito dominante observado é geralmente atenuação/queda quando comparado ao baseline de céu aberto.
+Em street level, a leitura tende a ficar mais próxima do "ruído ambiente normal" (sem grandes desvios).
+
+magnetic_field_variance (variância dentro da janela)
+
+Isto é talvez o sinal mais útil do magnetómetro para o seu caso, porque não depende de saber o baseline absoluto (que varia por região/latitude e é difícil de calibrar globalmente).
+Em ambiente aberto (rua), o campo é relativamente homogéneo → variância baixa.
+Dentro de uma garagem, o carro se movendo entre pilares, perto de portões metálicos, outros carros estacionados ao lado (massas metálicas grandes) → o campo varia muito ponto a ponto → variância alta.
+Ou seja: variância alta = "ambiente estruturalmente complexo/metálico", o que é um proxy razoável para "estou dentro de um parking", independente de ser underground ou above ground.
+
+magnetic_field_delta (entre primeira e última leitura da janela)
+
+Captura a transição: se o carro entrou na estrutura durante a janela, a leitura do início (ainda na rua) vai ser diferente da leitura do fim (já dentro). É mais um sinal de "evento de transição" do que de "estado estacionário".
+Isto é mais relevante para a Camada 1 (detecção do momento) do que para a Camada 2 (classificação do nível já parado) — porque uma vez já estacionado e parado, início e fim da janela vão captar leituras parecidas (mesmo ambiente), então o delta tende a zero mesmo estando dentro da garagem.
+
+## GPS/GNSS
+
 ## Resumo numa frase
 
 > **Liga os sensores só ao conduzir, filma a transição (não a foto do fim),
