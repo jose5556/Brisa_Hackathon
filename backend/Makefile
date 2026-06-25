@@ -43,6 +43,7 @@ cert:
 			-keyout "$(SSL_KEY_FILE)" \
 			-out "$(SSL_CERT_FILE)" \
 			-subj "/C=PT/ST=Lisbon/L=Lisbon/O=Brisa/OU=Dev/CN=localhost"; \
+			-addext "subjectAltName=DNS:localhost,IP:127.0.0.1,IP:10.21.220.182"; \
 	fi
 
 api: cert
