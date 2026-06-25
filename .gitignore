@@ -1,3 +1,12 @@
 venv
+.venv/
+backend/.venv/
 **/__pycache__/
 *.pyc
+
+# Env e credenciais
+.env
+backend/.env
+
+# Scripts locais
+sync_to_mac.sh
