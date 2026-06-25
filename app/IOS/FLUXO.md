@@ -106,7 +106,7 @@ recolha de dados de treino.
 
 ```mermaid
 flowchart TD
-    A["BrisaApp @main"] --> B["ContentView .onAppear"]
+    A["APP"] --> B["ContentView .onAppear"]
     B -->|startCollecting| C["SensorCollector\nGPS + Barómetro + Magnetómetro\nbuffer dinâmico"]
     C -.->|buffers em background| C
     B --> BTN(["🔘 Botão: ▶ Analisar ambiente"])
@@ -114,13 +114,11 @@ flowchart TD
     D -->|getCurrentWindow| E["Janela recortada\n(duração dinâmica)"]
     E --> F["SensorRepository\nprocessAndSend\ntoPayload() calcula features"]
     F --> K["SensorApiClient\nPOST /predict (JSON)"]
-    K -->|rede| L["FastAPI /predict\nMODELO 1: classificação de contexto"]
-    L -. futuro .-> L2["MODELO 2: decisão\ncobrar / não cobrar\n(+ meteorologia)"]
-    L -->|"{classification, confidence}"| N["ResultCard\nclasse + confiança %"]
-    N --> SAVE(["🔘 Botão: ▶ Guardar para treino"])
-    SAVE -->|POST /train-data| DB[("Base de dados de treino\n(API)")]
+    K --> L["API /predict\nMODELO 1: classificação de contexto"]
+    L -->|decisão final| N["Modelo 2 (MAPAS)\n "]
+    N --> SAVE(["🔘 Botão: ▶ USER FEEDBACK"])
+    SAVE -->|POST /train-data| DB[("Base de dados Treino\n")]
     N -.-> LOGS["🛠 SensorLogsView (DEV)\nRAW → FEATURES → PAYLOAD → RESPOSTA"]
-    N --> O["onDisappear → stopCollecting"]
 ```
 
 ---
