@@ -1,7 +1,12 @@
 # Fluxo da App — do arranque ao resultado
 
-Diagrama simples do percurso completo: arranque → recolha de sensores →
-envio para o backend de ML → classificação → resultado no ecrã.
+Diagrama do percurso da solução: arranque → recolha de sensores →
+envio para o backend de ML → classificação → resultado no ecrã →
+recolha de dados de treino.
+
+> Este documento descreve o **fluxo principal (caminho feliz)**. O tratamento
+> de erros (sem sinal GPS, dados insuficientes, falhas de rede) existe no
+> código mas foi omitido aqui para manter a visão geral simples.
 
 ---
 
@@ -36,21 +41,19 @@ envio para o backend de ML → classificação → resultado no ecrã.
 │    Recua no buffer a partir da paragem e corta a janela:             │
 │      âncora ──────────────────────▶ paragem                          │
 │    Âncora achada por um SCORE DE VARIAÇÃO                            │
-│    (magnetómetro + redução de velocidade + perda de GPS).            │
+│    (magnetómetro + redução de velocidade + perda de GPS).           │
 │    → duração da janela é DINÂMICA, não fixa.  [detalhe à parte]      │
 └───────────────────────────────┬──────────────────────────────────────┘
                                  │ janela recortada (âncora → paragem)
                                  ▼
 ┌──────────────────────────────────────────────────────────────────────┐
 │ 4. ORQUESTRAÇÃO  ·  SensorRepository.processAndSend(window)          │
+│    window.toPayload()  ──▶ calcula FEATURES                          │
+│    constrói SensorPayload (JSON, snake_case)                         │
 │                                                                       │
-│   a) última coord GPS ── sem sinal? ──▶ erro "Sem sinal GPS" ✋       │
-│   b) WeatherService.fetch(lat,lon)  ── Open-Meteo                     │
-│         └─ falha? usa defaults (1013.25 hPa, "clear") e continua      │
-│   c) window.toPayload(baseline, weather)  ── calcula FEATURES         │
-│         └─ sem dados? ──▶ erro "Dados insuficientes" ✋               │
+│    [futuro] WeatherService injecta baseline + condição do tempo      │
 └───────────────────────────────┬──────────────────────────────────────┘
-                                 │ SensorPayload (JSON, snake_case)
+                                 │ SensorPayload
                                  ▼
 ┌──────────────────────────────────────────────────────────────────────┐
 │ 5. ENVIO  ·  SensorApiClient.predictVerticalContext(payload)        │
@@ -60,25 +63,37 @@ envio para o backend de ML → classificação → resultado no ecrã.
               ═══════════════ rede ═══════════════                  │
                                                                     ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│ 6. BACKEND  ·  FastAPI  /predict  (ml-backend/src/api.py)            │
-│    payload ──▶ predict_vertical_context()                            │
-│            ──▶ modelo RandomForest (vertical_context_rf.joblib)      │
-│    devolve { classification, non_street_confidence }                 │
+│ 6. BACKEND  ·  FastAPI  /predict                                     │
+│    payload ──▶ MODELO 1: classificação de contexto vertical          │
+│            (estrutura / piso / garagem vs. via pública)              │
+│                                                                       │
+│    [futuro] MODELO 2: decisão final — COBRAR ou NÃO COBRAR           │
+│            (recebe a classificação + dados meteorológicos)           │
+│    devolve { classification, confidence }                            │
 └───────────────────────────────┬──────────────────────────────────────┘
                                  │ HTTP 200 + JSON
               ═══════════════ rede ═══════════════
                                  ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│ 7. RECEBIMENTO  ·  SensorApiClient descodifica PredictionResponse   │
-│    ── erro? ──▶ networkError / httpError / decodingFailed ✋         │
+│ 7. RESULTADO NO ECRÃ  ·  SensorViewModel ──▶ ContentView            │
+│    uploadResult = .success  →  ResultCard (classe + confiança %)     │
+│    (@Published → a UI re-renderiza automaticamente)                  │
 └───────────────────────────────┬──────────────────────────────────────┘
                                  │
                                  ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│ 8. RESULTADO NO ECRÃ  ·  SensorViewModel ──▶ ContentView            │
-│    sucesso → uploadResult = .success  → ResultCard (classe + conf%)  │
-│    erro    → uploadResult = .error    → ErrorCard                    │
-│    (@Published → a UI re-renderiza automaticamente)                  │
+│ 8. 🔘 BOTÃO  "▶ Guardar para treino"  ·  ContentView                 │
+│    Aparece DEPOIS da classificação.                                  │
+│    Envia o payload + a resposta do modelo para a API:               │
+│      POST {baseURL}/train-data                                       │
+│    → alimenta a base de dados de exemplos para retreinar o modelo.   │
+└───────────────────────────────┬──────────────────────────────────────┘
+                                 │
+                                 ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│ 🛠  TELA DE LOGS (DEV)  ·  SensorLogsView                            │
+│    Todo o pipeline fica visível: RAW → FEATURES → PAYLOAD →          │
+│    RESPOSTA DO MODELO → (futuro) decisão cobrar/não + meteorologia.  │
 └──────────────────────────────────────────────────────────────────────┘
                                  │
                                  ▼  (ao sair do ecrã: .onDisappear)
@@ -97,18 +112,14 @@ flowchart TD
     B --> BTN(["🔘 Botão: ▶ Analisar ambiente"])
     BTN -->|sendCurrentWindow\nmarca paragem| D{"Recorte dinâmico da janela\nâncora → paragem\n(score: mag + velocidade + GPS)"}
     D -->|getCurrentWindow| E["Janela recortada\n(duração dinâmica)"]
-    E --> F["SensorRepository\nprocessAndSend"]
-    F --> G{"GPS tem sinal?"}
-    G -->|não| ERR1["Erro: Sem sinal GPS"]
-    G -->|sim| H["WeatherService\nOpen-Meteo (baseline + tempo)"]
-    H --> I["toPayload()\ncalcula features"]
-    I --> J{"Dados suficientes?"}
-    J -->|não| ERR2["Erro: Dados insuficientes"]
-    J -->|sim| K["SensorApiClient\nPOST /predict (JSON)"]
-    K -->|rede| L["FastAPI /predict\nRandomForest model"]
-    L -->|"{classification,\nnon_street_confidence}"| M["Descodifica\nPredictionResponse"]
-    M -->|sucesso| N["ResultCard\nclasse + confiança %"]
-    M -->|erro| ERR3["ErrorCard\nnetwork/http/decoding"]
+    E --> F["SensorRepository\nprocessAndSend\ntoPayload() calcula features"]
+    F --> K["SensorApiClient\nPOST /predict (JSON)"]
+    K -->|rede| L["FastAPI /predict\nMODELO 1: classificação de contexto"]
+    L -. futuro .-> L2["MODELO 2: decisão\ncobrar / não cobrar\n(+ meteorologia)"]
+    L -->|"{classification, confidence}"| N["ResultCard\nclasse + confiança %"]
+    N --> SAVE(["🔘 Botão: ▶ Guardar para treino"])
+    SAVE -->|POST /train-data| DB[("Base de dados de treino\n(API)")]
+    N -.-> LOGS["🛠 SensorLogsView (DEV)\nRAW → FEATURES → PAYLOAD → RESPOSTA"]
     N --> O["onDisappear → stopCollecting"]
 ```
 
@@ -118,19 +129,24 @@ flowchart TD
 
 - **A recolha começa no `.onAppear`**, antes de qualquer clique — o buffer vai
   acumulando histórico para haver passado suficiente onde recortar.
-- **A janela já não é fixa (30s):** é um **buffer dinâmico**. O clique no botão
-  marca o instante de **paragem**; a janela de análise é recortada recuando no
-  buffer até à **âncora** (início da transição), achada por um **score de
-  variação** (magnetómetro + redução de velocidade + perda de GPS). _A estratégia
-  da âncora está definida à parte — aqui só entra como passo do fluxo._
-- **A meteorologia nunca bloqueia**: se a Open-Meteo falhar, usa defaults e segue.
-- **Pontos de paragem (erro)**: sem sinal GPS, dados insuficientes, falha de
-  rede/HTTP, ou descodificação inválida — cada um vira uma mensagem na UI.
-
-> ⚠️ **Desalinhamento de contrato (a confirmar):** o backend
-> [`api.py`](../../ml-backend/src/api.py) declara o `SensorWindow` com campos
-> `wifi_*`, `ble_*`, `pressure_slope`, `stationary_ratio` — mas o
-> [`SensorPayload`](swift/Sources/data/SensorData.swift) do iOS envia
-> `gps_speed_*`, `pressure_hpa`, `magnetic_field_*`, etc. Os nomes **não batem
-> certo**. Vale a pena alinhar o payload do iOS com o esquema do backend (ou
-> vice-versa) antes de testar o envio ponta a ponta.
+- **A janela não é fixa:** é um **buffer dinâmico**. O clique no botão marca o
+  instante de **paragem**; a janela de análise é recortada recuando no buffer
+  até à **âncora** (início da transição), achada por um **score de variação**
+  (magnetómetro + redução de velocidade + perda de GPS). _A estratégia da
+  âncora está definida à parte — aqui só entra como passo do fluxo._
+- **Dois modelos no backend (objetivo final):**
+  - **Modelo 1 — classificação de contexto vertical** (já em uso): diz se o
+    veículo está em via pública ou em estrutura/piso/garagem.
+  - **Modelo 2 — decisão de cobrança** _(futuro)_: recebe a classificação do
+    modelo 1 **+ dados meteorológicos** (via WeatherService) e decide
+    **cobrar ou não cobrar**.
+- **WeatherService** _(futuro)_: entra no fim do pipeline para alimentar o
+  modelo 2 com a condição do tempo / pressão baseline. Por agora está fora do
+  caminho principal.
+- **Botão "Guardar para treino"** _(novo)_: aparece **depois** da classificação.
+  Envia o payload original + a resposta do modelo para a API
+  (`POST /train-data`), construindo a base de dados de exemplos usada para
+  **retreinar o modelo**.
+- **Tela de logs (DEV):** todo o pipeline fica visível — leituras brutas,
+  features extraídas, payload enviado, resposta do modelo e (no objetivo final)
+  a decisão de cobrança e os dados meteorológicos.
