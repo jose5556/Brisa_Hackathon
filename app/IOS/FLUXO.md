@@ -15,20 +15,31 @@ envio para o backend de ML → classificação → resultado no ecrã.
                                  │ viewModel.startCollecting()
                                  ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│ 2. RECOLHA CONTÍNUA  ·  SensorCollector.startContinuous(30s)          │
-│    Buffers em background (janela deslizante de 30s, NSLock):          │
+│ 2. RECOLHA CONTÍNUA  ·  SensorCollector.startContinuous()            │
+│    Buffers em background num BUFFER DINÂMICO (histórico rolling de    │
+│    ~minutos, NSLock) — a janela de análise é recortada depois:       │
 │      • GPS         CLLocationManager   (~1 Hz, sem distanceFilter)    │
 │      • Barómetro   CMAltimeter         (~1 Hz)                        │
 │      • Magnetómetro CMMotionManager    (10 Hz)                        │
-│      • Trim timer  descarta amostras > 2× janela                     │
+│      • Trim timer  mantém só o histórico necessário                  │
 └───────────────────────────────┬──────────────────────────────────────┘
                                  │  (corre antes de qualquer clique)
                                  ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│ 3. UTILIZADOR CARREGA  "▶ Analisar ambiente"  ·  ContentView         │
+│ 3. 🔘 BOTÃO  "▶ Analisar ambiente"  ·  ContentView                   │
+│    O utilizador carrega ──▶ marca o instante de referência (paragem) │
 │    viewModel.sendCurrentWindow()  →  estado = .loading (spinner)      │
 └───────────────────────────────┬──────────────────────────────────────┘
-                                 │ collector.getCurrentWindow()  (snapshot 30s)
+                                 ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│ 3b. RECORTE DINÂMICO DA JANELA  ·  (estratégia de âncora)            │
+│    Recua no buffer a partir da paragem e corta a janela:             │
+│      âncora ──────────────────────▶ paragem                          │
+│    Âncora achada por um SCORE DE VARIAÇÃO                            │
+│    (magnetómetro + redução de velocidade + perda de GPS).            │
+│    → duração da janela é DINÂMICA, não fixa.  [detalhe à parte]      │
+└───────────────────────────────┬──────────────────────────────────────┘
+                                 │ janela recortada (âncora → paragem)
                                  ▼
 ┌──────────────────────────────────────────────────────────────────────┐
 │ 4. ORQUESTRAÇÃO  ·  SensorRepository.processAndSend(window)          │
@@ -81,10 +92,11 @@ envio para o backend de ML → classificação → resultado no ecrã.
 ```mermaid
 flowchart TD
     A["BrisaApp @main"] --> B["ContentView .onAppear"]
-    B -->|startCollecting| C["SensorCollector\nGPS + Barómetro + Magnetómetro\njanela deslizante 30s"]
+    B -->|startCollecting| C["SensorCollector\nGPS + Barómetro + Magnetómetro\nbuffer dinâmico (histórico rolling ~min)"]
     C -.->|buffers em background| C
-    B --> D{"Utilizador carrega\n▶ Analisar ambiente"}
-    D -->|sendCurrentWindow| E["getCurrentWindow()\nsnapshot 30s"]
+    B --> BTN(["🔘 Botão: ▶ Analisar ambiente"])
+    BTN -->|sendCurrentWindow\nmarca paragem| D{"Recorte dinâmico da janela\nâncora → paragem\n(score: mag + velocidade + GPS)"}
+    D -->|getCurrentWindow| E["Janela recortada\n(duração dinâmica)"]
     E --> F["SensorRepository\nprocessAndSend"]
     F --> G{"GPS tem sinal?"}
     G -->|não| ERR1["Erro: Sem sinal GPS"]
@@ -104,8 +116,13 @@ flowchart TD
 
 ## Notas
 
-- **A recolha começa no `.onAppear`**, antes de qualquer clique — quando o
-  utilizador carrega em "Analisar", a janela de 30s já está cheia.
+- **A recolha começa no `.onAppear`**, antes de qualquer clique — o buffer vai
+  acumulando histórico para haver passado suficiente onde recortar.
+- **A janela já não é fixa (30s):** é um **buffer dinâmico**. O clique no botão
+  marca o instante de **paragem**; a janela de análise é recortada recuando no
+  buffer até à **âncora** (início da transição), achada por um **score de
+  variação** (magnetómetro + redução de velocidade + perda de GPS). _A estratégia
+  da âncora está definida à parte — aqui só entra como passo do fluxo._
 - **A meteorologia nunca bloqueia**: se a Open-Meteo falhar, usa defaults e segue.
 - **Pontos de paragem (erro)**: sem sinal GPS, dados insuficientes, falha de
   rede/HTTP, ou descodificação inválida — cada um vira uma mensagem na UI.
