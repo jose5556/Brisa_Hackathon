@@ -92,7 +92,7 @@ envio para o backend de ML → classificação → resultado no ecrã.
 ```mermaid
 flowchart TD
     A["BrisaApp @main"] --> B["ContentView .onAppear"]
-    B -->|startCollecting| C["SensorCollector\nGPS + Barómetro + Magnetómetro\nbuffer dinâmico (histórico rolling ~min)"]
+    B -->|startCollecting| C["SensorCollector\nGPS + Barómetro + Magnetómetro\nbuffer dinâmico"]
     C -.->|buffers em background| C
     B --> BTN(["🔘 Botão: ▶ Analisar ambiente"])
     BTN -->|sendCurrentWindow\nmarca paragem| D{"Recorte dinâmico da janela\nâncora → paragem\n(score: mag + velocidade + GPS)"}
