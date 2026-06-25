@@ -102,7 +102,6 @@ recolha de dados de treino.
 
 ---
 
-## Versão Mermaid (renderiza no GitHub / VS Code)
 
 ```mermaid
 flowchart TD
