@@ -7,12 +7,14 @@ from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.model_selection import cross_val_predict
 
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier, HistGradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import SVC
 
 from xgboost import XGBClassifier
+
+from lightgbm import LGBMClassifier
 
 # Ignore convergence or deprecation warnings to keep terminal clean
 warnings.filterwarnings('ignore')
@@ -53,7 +55,10 @@ def run_model_comparison():
         'k-Nearest Neighbors': KNeighborsClassifier(n_neighbors=5),
         'Support Vector Machine': SVC(kernel='rbf', random_state=42),
         'Random Forest': RandomForestClassifier(n_estimators=100, random_state=42),
-        'XGBoost': XGBClassifier(random_state=42, use_label_encoder=False, eval_metric='mlogloss')
+        'XGBoost': XGBClassifier(random_state=42, use_label_encoder=False, eval_metric='mlogloss'),
+        'LightGBM': LGBMClassifier(random_state=42, verbose=-1),
+        'ExtraTrees': ExtraTreesClassifier(n_estimators=100, random_state=42),
+        'HistGradientBoosting': HistGradientBoostingClassifier(random_state=42)
     }
 
     # Configure K-Fold Cross Validation
@@ -125,6 +130,8 @@ def run_model_comparison():
         print("-" * 60)
         for i, real_class in enumerate(classes):
             print(format_row.format(real_class, cm[i][0], cm[i][1], cm[i][2]))
+        
+    print("\n\n")
 
 if __name__ == "__main__":
     run_model_comparison()
