@@ -80,7 +80,7 @@ POST /predict
 Example for street level:
 
 ```bash
-curl -X POST https://localhost:8000/parking-events/analyze \
+curl -X POST http://localhost:8000/parking-events/analyze \
   -H "Content-Type: application/json" \
   -d '{
     "gps_accuracy_mean": 24.0,
