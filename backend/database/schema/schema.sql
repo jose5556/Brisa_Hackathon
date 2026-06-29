@@ -128,20 +128,16 @@ CREATE TABLE sensor_payloads (
     pressure_delta_hpa      NUMERIC(7,4),     -- variation vs baseline
     pressure_variance       NUMERIC(10,6),    -- variance during window
     altitude_change_m       NUMERIC(7,3),     -- estimated altitude change
-    city_baseline_pressure  NUMERIC(8,3),
 
     -- Magnetometer
-    mag_x                   NUMERIC(10,4),
-    mag_y                   NUMERIC(10,4),
-    mag_z                   NUMERIC(10,4),
-    mag_variance_total      NUMERIC(10,6),    -- total 3-axis variance
-    mag_distortion_score    NUMERIC(5,4),     -- 0=clean, 1=highly disturbed
+    mag_variance_total      NUMERIC(10,6),    -- magnetic field variance
+    magnetic_field_mean     NUMERIC(10, 4),   -- average magnetic field intensity
+    magnetic_field_delta    NUMERIC(10, 4),   -- variation between first and last reading
 
     -- GNSS quality
-    gnss_accuracy_m         NUMERIC(6,2),
-    hdop                    NUMERIC(5,2),    -- horizontal precision
-    satellite_count         INTEGER,         -- number of visible satellites   
-    gnss_signal_drop        BOOLEAN,         -- degradation during the window
+    gnss_accuracy_m         NUMERIC(6,2),    -- average GPS accuracy during the window
+    gps_accuracy_delta      NUMERIC(6,2),    -- variation between best and worst accuracy (signal instability)
+    gps_lost_ratio          NUMERIC(4,3),    -- % of readings without GPS signal (0.0 = always with signal, 1.0 = no signal)
 
     -- Meteorological and urban conditions (for model error analysis)
     weather_condition   TEXT,            -- 'clear' | 'rain' | 'overcast'
@@ -151,6 +147,7 @@ CREATE TABLE sensor_payloads (
     raw_payload             JSONB,
 
     received_at             TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    
 );
 
 CREATE INDEX idx_sensor_payloads_session ON sensor_payloads(session_id);
