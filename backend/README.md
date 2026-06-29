@@ -27,15 +27,15 @@ make train
 From inside the backend folder, use one of these targets:
 
 ```bash
-make api
+make api-http
 ```
 
 `make api` starts the server over HTTPS by default. It generates a self-signed development certificate in `certs/`.
 
 The server is available on:
 
-- https://localhost:8000/health
-- https://localhost:8000/docs
+- http://localhost:8000/health
+- http://localhost:8000/docs
 
 ## Run the tests
 
@@ -104,7 +104,7 @@ curl -X POST http://localhost:8000/parking-events/analyze \
 Example for underground:
 
 ```bash
-curl -k -X POST https://localhost:8000/parking-events/analyze \
+curl -k -X POST http://localhost:8000/parking-events/analyze \
   -H "Content-Type: application/json" \
   -d '{
     "gps_accuracy_mean": 67.4,
