@@ -9,7 +9,11 @@ import Foundation
 
 final class SensorRepository {
 
-    func processAndSend(window: SensorWindow) async throws -> (payload: SensorPayload, response: PredictionResponse) {
+    // ── buildPayload ──────────────────────────────────────
+    // Passos 1-3: busca meteorologia, calcula features e constrói o payload.
+    // NÃO faz rede para a API de classificação — assim os logs (RAW/FEATURES/
+    // PAYLOAD) ficam disponíveis mesmo que o servidor esteja inacessível.
+    func buildPayload(window: SensorWindow) async throws -> SensorPayload {
 
         // ── 1. Extrai coordenadas da última leitura GPS ──
         guard let lastGps = window.gpsReadings.last, lastGps.hasSignal else {
@@ -53,9 +57,13 @@ final class SensorRepository {
         print("  pressureDeltaHpa: \(payload.pressureDeltaHpa) hPa")
         #endif
 
-        // ── 4. Envia para a API de classificação ─────────
-        let response = try await SensorApiClient.shared.predictVerticalContext(payload: payload)
-        return (payload, response)
+        return payload
+    }
+
+    // ── send ──────────────────────────────────────────────
+    // Passo 4: envia um payload já construído para a API de classificação.
+    func send(payload: SensorPayload) async throws -> PredictionResponse {
+        return try await SensorApiClient.shared.predictVerticalContext(payload: payload)
     }
 }
 

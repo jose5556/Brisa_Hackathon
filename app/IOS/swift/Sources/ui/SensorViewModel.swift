@@ -52,9 +52,13 @@ final class SensorViewModel: ObservableObject {
                   "Magnetic=\(window.magneticReadings.count)")
 
             do {
-                // O repository busca a meteorologia, calcula as features e envia para a API
-                let (payload, response) = try await repository.processAndSend(window: window)
+                // 1. Constrói o payload (meteorologia + features) — SEM rede para a API.
+                //    Assim os logs ficam disponíveis mesmo que o servidor esteja inacessível.
+                let payload = try await repository.buildPayload(window: window)
                 lastPayload = payload
+
+                // 2. Só depois tenta enviar para a API de classificação.
+                let response = try await repository.send(payload: payload)
                 uploadResult = .success(
                     classification: response.classification,
                     confidence: response.nonStreetConfidence
