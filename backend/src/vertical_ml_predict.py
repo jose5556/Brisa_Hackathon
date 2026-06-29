@@ -20,7 +20,7 @@ def predict_vertical_context(payload: dict) -> dict:
     row = {}
 
     for feature in features:
-        row[feature] = payload.get(feature, 0)
+        row[feature] = payload.get(feature, None)
 
     X = pd.DataFrame([row], columns=features)
 
