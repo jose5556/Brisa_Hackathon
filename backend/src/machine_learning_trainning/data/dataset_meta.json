@@ -17,7 +17,7 @@
   "classes": [
     "street_level",
     "underground",
-    "above_ground"
+    "above"
   ],
   "cities": [
     "OPO",

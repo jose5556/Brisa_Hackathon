@@ -130,14 +130,14 @@ CREATE TABLE sensor_payloads (
     altitude_change_m       NUMERIC(7,3),     -- estimated altitude change
 
     -- Magnetometer
-    mag_variance_total      NUMERIC(10,6),    -- magnetic field variance
+    magnetic_variance_total NUMERIC(10,6),    -- magnetic field variance
     magnetic_field_mean     NUMERIC(10, 4),   -- average magnetic field intensity
     magnetic_field_delta    NUMERIC(10, 4),   -- variation between first and last reading
 
     -- GNSS quality
     gnss_accuracy_m         NUMERIC(6,2),    -- average GPS accuracy during the window
-    gps_accuracy_delta      NUMERIC(6,2),    -- variation between best and worst accuracy (signal instability)
-    gps_lost_ratio          NUMERIC(4,3),    -- % of readings without GPS signal (0.0 = always with signal, 1.0 = no signal)
+    gnss_accuracy_delta      NUMERIC(6,2),    -- variation between best and worst accuracy (signal instability)
+    gnss_lost_ratio          NUMERIC(4,3),    -- % of readings without GPS signal (0.0 = always with signal, 1.0 = no signal)
 
     -- Full JSON payload (to re-process with future features)
     raw_payload             JSONB,

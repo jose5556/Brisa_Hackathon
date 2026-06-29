@@ -16,7 +16,7 @@
     "gps_lost_ratio"
   ],
   "classes": [
-    "above_ground",
+    "above",
     "street_level",
     "underground"
   ],

@@ -2,7 +2,7 @@
 generate_synthetic_data.py
 ==========================
 Generates a realistic synthetic dataset for the Vertical Context Classifier
-(Model 1: street_level | underground | above_ground).
+(Model 1: street_level | underground | above).
 
 Design principles
 -----------------
@@ -24,7 +24,7 @@ Design principles
     * Missing/None values (device firmware issues, BLE sensor drops)
     * Mislabelled outliers (~3% noise)
 - Class balance: deliberately imbalanced to reflect real-world distribution:
-    street_level 55% | underground 30% | above_ground 15%
+    street_level 55% | underground 30% | above 15%
   (underground is oversampled relative to reality to help minority-class learning)
 
 Output
@@ -236,7 +236,7 @@ def make_underground(city: str) -> dict:
     }
 
 
-def make_above_ground(city: str) -> dict:
+def make_above(city: str) -> dict:
     """
     ABOVE-GROUND MULTI-STOREY GARAGE — elevated, partially open.
 
@@ -288,7 +288,7 @@ def make_above_ground(city: str) -> dict:
     gps_delta = add_sensor_noise(gps_delta, sigma=2.0, missing_prob=0.03)
 
     return {
-        "label": "above_ground",
+        "label": "above",
         "city": city,
         "ground_elevation_m": round(elev, 1),
         "pressure_hpa": round(p_abs, 3) if p_abs else None,
@@ -308,7 +308,7 @@ def make_above_ground(city: str) -> dict:
 # ─────────────────────────────────────────────────────────────────────────────
 
 LABEL_NOISE_RATE = 0.03
-ALL_LABELS = ["street_level", "underground", "above_ground"]
+ALL_LABELS = ["street_level", "underground", "above"] # fixed order for encoding
 
 def inject_label_noise(row: dict) -> dict:
     if rng.random() < LABEL_NOISE_RATE:
@@ -325,7 +325,7 @@ def inject_label_noise(row: dict) -> dict:
 
 def generate_dataset(n_total: int = 5000) -> pd.DataFrame:
     # Class distribution: intentionally imbalanced, reflects real-world + minority boost
-    # street_level=55%, underground=30%, above_ground=15%
+    # street_level=55%, underground=30%, above=15%
     n_street      = int(n_total * 0.55)
     n_underground = int(n_total * 0.30)
     n_above       = n_total - n_street - n_underground
@@ -333,7 +333,7 @@ def generate_dataset(n_total: int = 5000) -> pd.DataFrame:
     print(f"Generating {n_total} samples:")
     print(f"  street_level  : {n_street}")
     print(f"  underground   : {n_underground}")
-    print(f"  above_ground  : {n_above}")
+    print(f"  above  : {n_above}")
 
     cities = ["OPO", "LIS"]
     records = []
@@ -341,7 +341,7 @@ def generate_dataset(n_total: int = 5000) -> pd.DataFrame:
     generators = [
         (make_street_level,  n_street),
         (make_underground,   n_underground),
-        (make_above_ground,  n_above),
+        (make_above,  n_above),
     ]
 
     for gen_fn, count in generators:
@@ -456,7 +456,7 @@ def main(n_total: int = 5000):
         "n_total": len(df),
         "feature_columns": feature_cols,
         "label_column": "label",
-        "classes": ["street_level", "underground", "above_ground"],
+        "classes": ["street_level", "underground", "above"],
         "cities": ["OPO", "LIS"],
         "label_noise_rate": LABEL_NOISE_RATE,
         "seed": SEED,
