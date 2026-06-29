@@ -9,11 +9,38 @@ meteorológicos e um modelo de Machine Learning servido por um backend.
 
 ## 1. Visão geral
 
-A app recolhe continuamente leituras de sensores numa **janela deslizante de 30
-segundos**. Quando o utilizador carrega em **"Analisar ambiente"**, a app tira um
-*snapshot* dessa janela, enriquece-o com dados de meteorologia, calcula um
-conjunto de *features* estatísticas e envia tudo para um backend de ML, que
-devolve uma **classificação** e um nível de **confiança**.
+A app recolhe continuamente leituras de sensores num **buffer**. Quando o carro
+**pára** (ou o utilizador carrega em **"Analisar ambiente"**), a app **recua no
+buffer até à última leitura de "rua calma"**, corta a janela a partir desse ponto
+(janela de **duração dinâmica** = a transição inteira), enriquece-a com dados de
+meteorologia, calcula um conjunto de *features* estatísticas e envia tudo para um
+backend de ML, que devolve uma **classificação** e um nível de **confiança**.
+
+> A estratégia de deteção (como se acha a âncora, a variância do magnetómetro, os
+> valores de comparação) está detalhada em [ESTRATEGIA.md](ESTRATEGIA.md).
+
+### Deteção da âncora — corte da janela
+
+```
+ buffer ──────────────────────────────────────────────────▶ paragem ✋
+ │  rua  rua  rua  [ transição: rampa + garagem ]  PAROU
+ │                ▲
+ │                └── ÂNCORA = última leitura CALMA (achada a recuar)
+ │
+ │     CALMA = magVariance < X  E  speed > Y  E  gps.acc < Z
+ │
+ │◀────────── JANELA cortada = âncora … paragem ───────────▶│
+ │            (deltas + features → /predict)
+
+ sincronização: o GPS é o relógio (traz speed + acc);
+                o magnetómetro vai à boleia → variância da janela [t−2s, t]
+```
+
+| Sinal | Usa | Comparação |
+|---|---|---|
+| `gps.acc` | o **valor** | fixo: `< 15 m` |
+| `speed` | o **valor** | fixo: `> 2.5 m/s` |
+| `magVariance` | a **variância** (janela 2 s) | relativo: `< ~2.5× baseline da rua` |
 
 Arquitetura: **MVVM + Repository**
 

@@ -21,11 +21,14 @@ struct ContentView: View {
 
     // Animação da barra de progresso (equivalente ao progressAnim do Kotlin)
     @State private var progressValue: Double = 0
+    // Controla navegação para a tela de logs DEV
+    @State private var showLogs = false
     private let progressTimer = Timer.publish(every: 0.1, on: .main, in: .common).autoconnect()
 
     var isLoading: Bool { viewModel.uploadResult == .loading }
 
     var body: some View {
+        NavigationStack {
         VStack(spacing: 0) {
 
             // ── Header verde ──────────────────────────
@@ -68,7 +71,7 @@ struct ContentView: View {
                 .padding(.vertical, 20)
             }
 
-            // ── Botão principal ───────────────────────
+            // ── Botão ───────────────────────
             VStack(spacing: 0) {
                 Divider()
                 VStack(spacing: 8) {
@@ -120,6 +123,10 @@ struct ContentView: View {
             progressValue = min(progressValue + (0.1 / 30.0), 1.0)
             if progressValue >= 1.0 { progressValue = 0 }
         }
+        .navigationDestination(isPresented: $showLogs) {
+            SensorLogsView(viewModel: viewModel)
+        }
+        } // NavigationStack
     }
 
     // ── Header ────────────────────────────────────────
@@ -152,6 +159,25 @@ struct ContentView: View {
                     .kerning(2)
             }
             .padding(.vertical, 28)
+
+            // Botão DEV no canto superior direito — abre a tela de logs
+            VStack {
+                HStack {
+                    Spacer()
+                    Button("DEV") { showLogs = true }
+                        .font(.system(size: 10, weight: .bold))
+                        .kerning(1)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Color.white.opacity(0.15))
+                        .cornerRadius(8)
+                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.3), lineWidth: 1))
+                        .padding(.trailing, 16)
+                }
+                Spacer()
+            }
+            .padding(.top, 56)
         }
         .ignoresSafeArea(edges: .top)
     }
