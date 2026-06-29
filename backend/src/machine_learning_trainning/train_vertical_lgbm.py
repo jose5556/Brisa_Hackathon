@@ -2,7 +2,7 @@
 train_vertical_lgbm.py
 ======================
 Trains a LightGBM classifier to distinguish:
-    street_level | underground | above_ground
+    street_level | underground | above
 
 Compatible with the predict interface in vertical_ml_predict.py
 (output bundle: {"model": <fitted estimator>, "features": [...]})
@@ -28,7 +28,7 @@ Design
 - Final model trained on the full training set with the best iteration count.
 - SHAP feature importances exported for model debugging.
 - Threshold analysis: for the "non_street_confidence" composite score
-  (P(underground) + P(above_ground)), we scan thresholds and print the
+  (P(underground) + P(above)), we scan thresholds and print the
   precision/recall trade-off — you pick the operating point for your grace window.
 - Artefact saved with the same bundle schema as vertical_ml_predict.py
   so the predict function works with zero changes.
@@ -140,7 +140,7 @@ def load_data(train_path: Path, val_path: Path):
 
 def encode_labels(y_train, y_val):
     le = LabelEncoder()
-    le.fit(["street_level", "underground", "above_ground"])  # fixed order
+    le.fit(["street_level", "underground", "above"])  # fixed order
     y_train_enc = le.transform(y_train)
     y_val_enc   = le.transform(y_val)
     return le, y_train_enc, y_val_enc
@@ -260,7 +260,7 @@ def evaluate(
 def threshold_analysis(eval_results: dict, y_val_enc: np.ndarray):
     """
     Analyse the precision/recall curve for the binary decision:
-        non_street_confidence = P(underground) + P(above_ground)
+        non_street_confidence = P(underground) + P(above)
 
     This is the key operating signal for the billing pipeline:
     - High threshold → fewer false positives (don't bill street parkers incorrectly)
@@ -275,9 +275,9 @@ def threshold_analysis(eval_results: dict, y_val_enc: np.ndarray):
     class_names = eval_results["class_names"]
     idx = eval_results["class_indices"]
 
-    # non_street_confidence: P(underground) + P(above_ground)
+    # non_street_confidence: P(underground) + P(above)
     non_street_conf = (
-        y_proba[:, idx["underground"]] + y_proba[:, idx["above_ground"]]
+        y_proba[:, idx["underground"]] + y_proba[:, idx["above"]]
     )
 
     # Binary ground truth: 1 if not street_level
@@ -425,7 +425,7 @@ def verify_predict_interface(artifact_path: Path):
 
     probabilities_by_class = dict(zip(classes_enc, probabilities))
     underground_score = float(probabilities_by_class.get("underground", 0.0))
-    above_score       = float(probabilities_by_class.get("above_ground", 0.0))
+    above_score       = float(probabilities_by_class.get("above", 0.0))
 
     non_street_confidence = round(underground_score + above_score, 4)
     classification = max(probabilities_by_class, key=probabilities_by_class.get)

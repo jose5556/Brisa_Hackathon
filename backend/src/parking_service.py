@@ -214,7 +214,7 @@ def create_inference_log(
 ) -> str:
     non_street_confidence = prediction["non_street_confidence"]
 
-    if non_street_confidence <= 0.25:
+    if non_street_confidence <= 0.25: #!!!!! According to the model's training, it gives us a value of 0.54, to remember to verify this value later.
         final_decision = "charge"
     else:
         final_decision = "uncertain"
