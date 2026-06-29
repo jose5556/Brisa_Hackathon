@@ -38,12 +38,14 @@ def predict_vertical_context(payload: dict) -> dict:
     non_street_confidence = underground_score + above_score
     non_street_confidence = float(np.round(non_street_confidence, 2))
 
+    le = bundle["label_encoder"]
+
     raw_classification = max(
         probabilities_by_class,
         key=probabilities_by_class.get,
     )
 
-    classification = str(raw_classification)
+    classification = str(le.inverse_transform([raw_classification])[0])
 
     return {
         "non_street_confidence": non_street_confidence,
