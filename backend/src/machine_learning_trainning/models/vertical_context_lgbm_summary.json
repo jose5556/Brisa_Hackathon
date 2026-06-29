@@ -1,0 +1,46 @@
+{
+  "model_name": "vertical_classifier",
+  "version_tag": "v1.0.0-lgbm",
+  "artifact_path": "models/vertical_context_lgbm.joblib",
+  "feature_columns": [
+    "pressure_hpa",
+    "pressure_delta_hpa",
+    "pressure_variance",
+    "altitude_change_m",
+    "pressure_relative_to_surface_hpa",
+    "mag_variance_total",
+    "magnetic_field_mean",
+    "magnetic_field_delta",
+    "gnss_accuracy_m",
+    "gps_accuracy_delta",
+    "gps_lost_ratio"
+  ],
+  "classes": [
+    "above_ground",
+    "street_level",
+    "underground"
+  ],
+  "non_street_threshold": 0.5441131675742256,
+  "val_f1_score": 0.9531,
+  "val_roc_auc": 0.9625,
+  "lgbm_params": {
+    "objective": "multiclass",
+    "num_class": 3,
+    "metric": "multi_logloss",
+    "boosting_type": "gbdt",
+    "num_leaves": 63,
+    "max_depth": -1,
+    "learning_rate": 0.05,
+    "n_estimators": 1000,
+    "subsample": 0.8,
+    "subsample_freq": 1,
+    "colsample_bytree": 0.8,
+    "min_child_samples": 10,
+    "reg_alpha": 0.1,
+    "reg_lambda": 1.0,
+    "class_weight": "balanced",
+    "random_state": 42,
+    "n_jobs": -1,
+    "verbose": -1
+  }
+}

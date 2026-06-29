@@ -139,10 +139,6 @@ CREATE TABLE sensor_payloads (
     gps_accuracy_delta      NUMERIC(6,2),    -- variation between best and worst accuracy (signal instability)
     gps_lost_ratio          NUMERIC(4,3),    -- % of readings without GPS signal (0.0 = always with signal, 1.0 = no signal)
 
-    -- Meteorological and urban conditions (for model error analysis)
-    weather_condition   TEXT,            -- 'clear' | 'rain' | 'overcast'
-    time_of_day         TEXT,            -- 'morning' | 'afternoon' | 'evening' | 'night'
-
     -- Full JSON payload (to re-process with future features)
     raw_payload             JSONB,
 
