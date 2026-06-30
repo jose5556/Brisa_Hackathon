@@ -32,7 +32,7 @@ def root():
 
 
 @app.get("/health")
-def health():2
+def health():
     try:
         result = subprocess.run(
             ["tailscale", "ip", "-4"],
