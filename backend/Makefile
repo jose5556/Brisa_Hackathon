@@ -12,6 +12,11 @@ HOST ?= 0.0.0.0
 PORT ?= 8000
 CERT_IP ?= 10.21.220.182
 
+MAKEFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+COMPOSE_FILE := $(MAKEFILE_DIR)docker-compose.yml
+SCHEMA_FILE := $(MAKEFILE_DIR)database/schema/schema.sql
+DOCKER_COMPOSE := docker compose -f $(COMPOSE_FILE)
+
 .PHONY: \
 	help \
 	venv \
@@ -88,34 +93,34 @@ api-http:
 		--reload
 
 up:
-	docker compose up -d
+	$(DOCKER_COMPOSE) up -d
 
 down:
-	docker compose down -v
+	$(DOCKER_COMPOSE) down -v
 
 db-init:
-	docker compose exec -T db \
+	@test -s "$(SCHEMA_FILE)"
+	cat "$(SCHEMA_FILE)" | $(DOCKER_COMPOSE) exec -T db \
 		psql -v ON_ERROR_STOP=1 \
 		-U parking_user \
-		-d parking_db \
-		< database/schema/schema.sql
+		-d parking_db
 
 # some update broke this, needs to be fixed :(
 db-reset:
-	docker compose down -v
-	docker compose up -d
-	@until docker compose exec -T db \
+	$(DOCKER_COMPOSE) down -v
+	$(DOCKER_COMPOSE) up -d
+	@until $(DOCKER_COMPOSE) exec -T db \
 		pg_isready -U parking_user -d parking_db >/dev/null 2>&1; do \
 		sleep 1; \
 	done
-	docker compose exec -T db \
+	@test -s "$(SCHEMA_FILE)"
+	cat "$(SCHEMA_FILE)" | $(DOCKER_COMPOSE) exec -T db \
 		psql -v ON_ERROR_STOP=1 \
 		-U parking_user \
-		-d parking_db \
-		< database/schema/schema.sql
+		-d parking_db
 
 db-shell:
-	docker compose exec db psql -U parking_user -d parking_db
+	$(DOCKER_COMPOSE) exec db psql -U parking_user -d parking_db
 
 tests:
 	$(PYTHON_VENV) -m pytest ../tests
