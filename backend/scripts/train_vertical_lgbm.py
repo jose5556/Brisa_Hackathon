@@ -9,13 +9,10 @@ Compatible with the predict interface in vertical_ml_predict.py
 
 Usage
 -----
-    # 1. Generate data first (if not done yet)
-    python generate_synthetic_data.py --n 5000
-
-    # 2. Train
+    # Train
     python train_vertical_lgbm.py
 
-    # 3. Optional: tune number of samples and thresholds
+    # Optional: tune number of samples and thresholds
     python train_vertical_lgbm.py --train  data/synthetic_vertical_train.csv \
                                    --val   data/synthetic_vertical_val.csv   \
                                    --out   models/vertical_context_lgbm.joblib
@@ -59,8 +56,8 @@ from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import LabelEncoder
 
 # ── Paths ────────────────────────────────────────────────────────────────────
-DATA_DIR  = Path("data")
-MODEL_DIR = Path("models")
+DATA_DIR  = Path("../database/data_trainning_ml1/data")
+MODEL_DIR = Path("../models")
 MODEL_DIR.mkdir(exist_ok=True)
 
 DEFAULT_TRAIN = DATA_DIR / "synthetic_vertical_train.csv"

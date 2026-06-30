@@ -1,7 +1,7 @@
 {
   "model_name": "vertical_classifier",
   "version_tag": "v1.0.0-lgbm",
-  "artifact_path": "models/vertical_context_lgbm.joblib",
+  "artifact_path": "../models/vertical_context_lgbm.joblib",
   "feature_columns": [
     "pressure_hpa",
     "pressure_delta_hpa",

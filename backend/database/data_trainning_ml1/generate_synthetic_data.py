@@ -4,6 +4,11 @@ generate_synthetic_data.py
 Generates a realistic synthetic dataset for the Vertical Context Classifier
 (Model 1: street_level | underground | above).
 
+Usage
+-----
+    # 1. Generate data first (if not done yet)
+    python generate_synthetic_data.py --n 5000
+
 Design principles
 -----------------
 - Signal distributions are grounded in real-world physics for each location type:
