@@ -16,15 +16,25 @@ final class SensorViewModel: ObservableObject {
     // Janela ao vivo — atualizada a 1 Hz enquanto a tela de logs estiver aberta
     @Published var liveWindow: SensorWindow = SensorWindow()
 
+    // ── Captura manual (janela dinâmica) ──────────────
+    // isManualCapture: true entre "Iniciar" e "Analisar ambiente".
+    // manualElapsedS: segundos decorridos desde o "Iniciar" (atualizado a 1 Hz).
+    @Published var isManualCapture = false
+    @Published var manualElapsedS = 0
+
     private let collector = SensorCollector()
     private let repository = SensorRepository()
     private var isCollecting = false
     private var liveTimer: Timer? = nil
+    private var manualStartMs: Int64 = 0
+    private var manualTimer: Timer? = nil
 
     // ── Ciclo de vida ─────────────────────────────────
     // Chama no .onAppear da View (equivalente a onStart)
     func startCollecting() {
         collector.startContinuous(windowSizeMs: 30_000)
+        // Recupera/reenvia payloads guardados offline (desta ou de sessões anteriores).
+        Task { await OfflineQueue.shared.startAutoFlush() }
     }
 
     // Chama no .onDisappear (equivalente a onStop)
@@ -34,7 +44,7 @@ final class SensorViewModel: ObservableObject {
     }
 
     // ── Envio de dados ────────────────────────────────
-    // Equivalente a sendCurrentWindow() do Kotlin
+    // Equivalente a sendCurrentWindow() do Kotlin — usa a janela fixa de 30s.
     func sendCurrentWindow() {
         guard !isCollecting else { return }
         isCollecting = true
@@ -42,37 +52,98 @@ final class SensorViewModel: ObservableObject {
 
         Task {
             defer { isCollecting = false }
+            await process(window: collector.getCurrentWindow())
+        }
+    }
 
-            let window = collector.getCurrentWindow()
-            lastWindow = window
+    // ── Captura manual (janela dinâmica) ──────────────
 
-            print("[SensorViewModel] Janela obtida — " +
-                  "GPS=\(window.gpsReadings.count) " +
-                  "Pressure=\(window.pressureReadings.count) " +
-                  "Magnetic=\(window.magneticReadings.count)")
+    /// "Iniciar" — marca o instante de arranque e começa a contar segundos a 1 Hz.
+    func startManualCapture() {
+        guard !isManualCapture, !isCollecting else { return }
+        manualStartMs = collector.currentTimeMs()
+        manualElapsedS = 0
+        isManualCapture = true
+        uploadResult = .idle
 
-            do {
-                // O repository busca a meteorologia, calcula as features e envia para a API
-                let (payload, response) = try await repository.processAndSend(window: window)
-                lastPayload = payload
-                uploadResult = .success(
-                    classification: response.classification,
-                    confidence: response.nonStreetConfidence
-                )
-            } catch SensorApiError.networkError(let e) {
-                uploadResult = .error(message: "Servidor inacessível: \(e.localizedDescription)")
-            } catch SensorApiError.httpError(let code) {
-                uploadResult = .error(message: "Erro do servidor: HTTP \(code)")
-            } catch let e as SensorRepositoryError {
-                uploadResult = .error(message: e.localizedDescription)
-            } catch {
-                uploadResult = .error(message: error.localizedDescription)
+        manualTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            Task { @MainActor in
+                self.manualElapsedS = Int((self.collector.currentTimeMs() - self.manualStartMs) / 1000)
             }
+        }
+    }
+
+    /// Cancela a captura manual sem analisar.
+    func cancelManualCapture() {
+        manualTimer?.invalidate(); manualTimer = nil
+        isManualCapture = false
+        manualElapsedS = 0
+    }
+
+    /// "Analisar ambiente" (dinâmico) — fecha a contagem e analisa a janela
+    /// recortada desde o "Iniciar" (limitada a 180s pelo collector).
+    func analyzeManualWindow() {
+        guard isManualCapture, !isCollecting else { return }
+        manualTimer?.invalidate(); manualTimer = nil
+        isManualCapture = false
+        isCollecting = true
+        uploadResult = .loading
+
+        let startMs = manualStartMs
+        Task {
+            defer { isCollecting = false }
+            await process(window: collector.getWindow(sinceMs: startMs))
         }
     }
 
     func resetResult() {
         uploadResult = .idle
+    }
+
+    // ── Pipeline comum: payload + envio ───────────────
+    private func process(window: SensorWindow) async {
+        lastWindow = window
+
+        print("[SensorViewModel] Janela obtida — " +
+              "GPS=\(window.gpsReadings.count) " +
+              "Pressure=\(window.pressureReadings.count) " +
+              "Magnetic=\(window.magneticReadings.count)")
+
+        // 1. Constrói o payload (meteorologia + features) — SEM rede para a API.
+        //    Assim os logs ficam disponíveis mesmo que o servidor esteja inacessível.
+        let payload: SensorPayload
+        do {
+            payload = try await repository.buildPayload(window: window)
+            lastPayload = payload
+        } catch let e as SensorRepositoryError {
+            uploadResult = .error(message: e.localizedDescription)
+            return
+        } catch {
+            uploadResult = .error(message: error.localizedDescription)
+            return
+        }
+
+        // 2. Só depois tenta enviar para a API de classificação.
+        do {
+            let response = try await repository.send(payload: payload)
+            uploadResult = .success(
+                classification: response.classification,
+                confidence: response.nonStreetConfidence
+            )
+        } catch SensorApiError.networkError(let e) {
+            // Sem rede → guarda o payload para reenvio automático (TTL 20 min).
+            await OfflineQueue.shared.enqueue(payload)
+            await OfflineQueue.shared.startAutoFlush()
+            let pending = await OfflineQueue.shared.pendingCount()
+            uploadResult = .error(
+                message: "Sem ligação — guardado para reenvio automático (\(pending) na fila). \(e.localizedDescription)"
+            )
+        } catch SensorApiError.httpError(let code) {
+            uploadResult = .error(message: "Erro do servidor: HTTP \(code)")
+        } catch {
+            uploadResult = .error(message: error.localizedDescription)
+        }
     }
 
     // ── Live window — para a tela de logs ────────────
