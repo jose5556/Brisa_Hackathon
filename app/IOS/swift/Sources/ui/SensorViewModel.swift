@@ -15,6 +15,8 @@ final class SensorViewModel: ObservableObject {
     @Published var lastWindow: SensorWindow? = nil
     // Janela ao vivo — atualizada a 1 Hz enquanto a tela de logs estiver aberta
     @Published var liveWindow: SensorWindow = SensorWindow()
+    // Deltas ao vivo — Δ de cada sensor nos últimos 10s, atualizado a 1 Hz
+    @Published var liveDeltas: SensorDeltas? = nil
 
     // ── Captura manual (janela dinâmica) ──────────────
     // isManualCapture: true entre "Iniciar" e "Analisar ambiente".
@@ -33,8 +35,6 @@ final class SensorViewModel: ObservableObject {
     // Chama no .onAppear da View (equivalente a onStart)
     func startCollecting() {
         collector.startContinuous(windowSizeMs: 30_000)
-        // Recupera/reenvia payloads guardados offline (desta ou de sessões anteriores).
-        Task { await OfflineQueue.shared.startAutoFlush() }
     }
 
     // Chama no .onDisappear (equivalente a onStop)
@@ -110,37 +110,24 @@ final class SensorViewModel: ObservableObject {
               "Pressure=\(window.pressureReadings.count) " +
               "Magnetic=\(window.magneticReadings.count)")
 
-        // 1. Constrói o payload (meteorologia + features) — SEM rede para a API.
-        //    Assim os logs ficam disponíveis mesmo que o servidor esteja inacessível.
-        let payload: SensorPayload
         do {
-            payload = try await repository.buildPayload(window: window)
+            // 1. Constrói o payload (meteorologia + features) — SEM rede para a API.
+            //    Assim os logs ficam disponíveis mesmo que o servidor esteja inacessível.
+            let payload = try await repository.buildPayload(window: window)
             lastPayload = payload
-        } catch let e as SensorRepositoryError {
-            uploadResult = .error(message: e.localizedDescription)
-            return
-        } catch {
-            uploadResult = .error(message: error.localizedDescription)
-            return
-        }
 
-        // 2. Só depois tenta enviar para a API de classificação.
-        do {
+            // 2. Só depois tenta enviar para a API de classificação.
             let response = try await repository.send(payload: payload)
             uploadResult = .success(
                 classification: response.classification,
                 confidence: response.nonStreetConfidence
             )
         } catch SensorApiError.networkError(let e) {
-            // Sem rede → guarda o payload para reenvio automático (TTL 20 min).
-            await OfflineQueue.shared.enqueue(payload)
-            await OfflineQueue.shared.startAutoFlush()
-            let pending = await OfflineQueue.shared.pendingCount()
-            uploadResult = .error(
-                message: "Sem ligação — guardado para reenvio automático (\(pending) na fila). \(e.localizedDescription)"
-            )
+            uploadResult = .error(message: "Servidor inacessível: \(e.localizedDescription)")
         } catch SensorApiError.httpError(let code) {
             uploadResult = .error(message: "Erro do servidor: HTTP \(code)")
+        } catch let e as SensorRepositoryError {
+            uploadResult = .error(message: e.localizedDescription)
         } catch {
             uploadResult = .error(message: error.localizedDescription)
         }
@@ -153,7 +140,20 @@ final class SensorViewModel: ObservableObject {
         liveTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             guard let self else { return }
             Task { @MainActor in
-                self.liveWindow = self.collector.getCurrentWindow()
+                let window = self.collector.getCurrentWindow()
+                let deltas = window.deltas(overMs: 5_000)
+                self.liveWindow = window
+                self.liveDeltas = deltas
+
+                // Log dos Δ (últimos 10s) a 1 Hz
+                func fmt(_ v: Double?, _ unit: String) -> String {
+                    guard let v else { return "n/a" }
+                    return String(format: "%+.2f%@", v, unit)
+                }
+                print("[Δ 10s] pressure=\(fmt(deltas.pressureHpa, "hPa")) " +
+                      "gps_acc=\(fmt(deltas.gpsAccuracyM, "m")) " +
+                      "gps_speed=\(fmt(deltas.gpsSpeedMps, "m/s")) " +
+                      "mag=\(fmt(deltas.magneticUt, "µT"))")
             }
         }
     }

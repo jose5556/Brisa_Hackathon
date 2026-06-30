@@ -17,6 +17,18 @@ struct SensorLogsView: View {
                     // ── Barra de estado dos sensores ──
                     sensorsStrip
 
+                    // ── Secção 0: Deltas ao vivo ──────
+                    LogSection(title: "DELTAS", badge: "últimos 10s · 1 Hz") {
+                        VStack(alignment: .leading, spacing: 2) {
+                            DataRow(key: "pressure",  value: deltaText(viewModel.liveDeltas?.pressureHpa,  "hPa"))
+                            DataRow(key: "gps_acc",   value: deltaText(viewModel.liveDeltas?.gpsAccuracyM, "m"))
+                            DataRow(key: "gps_speed", value: deltaText(viewModel.liveDeltas?.gpsSpeedMps,  "m/s"))
+                            DataRow(key: "mag",       value: deltaText(viewModel.liveDeltas?.magneticUt,   "µT"))
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                    }
+
                     // ── Secção 1: Janela raw ──────────
                     if let window = viewModel.lastWindow {
                         LogSection(title: "RAW SENSOR WINDOW", badge: "3 sources") {
@@ -215,6 +227,12 @@ struct SensorLogsView: View {
         .padding(16)
         .background(Color(white: 0.05))
         .overlay(Divider().background(Color(white: 0.1)), alignment: .bottom)
+    }
+
+    // Formata um Δ com sinal e unidade; "—" quando ainda não há dados.
+    private func deltaText(_ value: Double?, _ unit: String) -> String {
+        guard let value else { return "—" }
+        return String(format: "%+.2f %@", value, unit)
     }
 
     // Extrai o host do baseURL para mostrar no PAYLOAD SENT
