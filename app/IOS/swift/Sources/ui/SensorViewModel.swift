@@ -13,6 +13,8 @@ final class SensorViewModel: ObservableObject {
     @Published var uploadResult: UploadResult = .idle
     @Published var lastPayload: SensorPayload? = nil
     @Published var lastWindow: SensorWindow? = nil
+    // Resultado do scoring da última análise — baseline (tick de maior score) + série por tick.
+    @Published var lastScore: WindowScore? = nil
     // Janela ao vivo — atualizada a 1 Hz enquanto a tela de logs estiver aberta
     @Published var liveWindow: SensorWindow = SensorWindow()
     // Deltas ao vivo — Δ de cada sensor nos últimos 10s, atualizado a 1 Hz
@@ -44,7 +46,10 @@ final class SensorViewModel: ObservableObject {
     }
 
     // ── Envio de dados ────────────────────────────────
-    // Equivalente a sendCurrentWindow() do Kotlin — usa a janela fixa de 30s.
+    // Janela dinâmica por score: percorre o buffer (até 180s), acha o tick de
+    // maior score de transição (GPS acc + speed + magnetómetro) e usa a janela
+    // [tick de maior score → agora]. A 1ª leitura dessa janela é a baseline de rua.
+    // Se nenhum tick passar o gate, recai na janela fixa de 30s.
     func sendCurrentWindow() {
         guard !isCollecting else { return }
         isCollecting = true
@@ -52,7 +57,23 @@ final class SensorViewModel: ObservableObject {
 
         Task {
             defer { isCollecting = false }
-            await process(window: collector.getCurrentWindow())
+
+            let buffer  = collector.getWindow(sinceMs: 0)   // buffer completo (até 180s)
+            let scoring = buffer.computeScore()
+            lastScore = scoring
+
+            let window: SensorWindow
+            if let startMs = scoring.bestTimestampMs {
+                window = buffer.sliced(fromMs: startMs)
+                let durS = Double(buffer.gpsReadings.last!.timestampMs - startMs) / 1000.0
+                print(String(format: "[Score] melhor tick @%lld score=%.2f → janela de %.0fs",
+                             startMs, scoring.bestScore, durS))
+            } else {
+                window = collector.getCurrentWindow()        // fallback: 30s fixo
+                print("[Score] nenhum tick passou o gate — fallback janela 30s")
+            }
+
+            await process(window: window)
         }
     }
 

@@ -29,6 +29,56 @@ struct SensorLogsView: View {
                         .padding(.vertical, 8)
                     }
 
+                    // ── Secção: Score & Baseline ──────
+                    if let score = viewModel.lastScore {
+                        let start = score.bestTimestampMs
+                        // Leituras da janela [maior score → agora]. Em fallback (sem gate), mostra todas.
+                        let windowTicks = start.map { s in score.ticks.filter { $0.timestampMs >= s } } ?? score.ticks
+                        let durationS: Double = {
+                            if let s = start, let last = windowTicks.last {
+                                return Double(last.timestampMs - s) / 1000.0
+                            }
+                            return viewModel.lastPayload?.windowDurationS ?? 0
+                        }()
+                        let refMs = start ?? windowTicks.first?.timestampMs ?? 0
+
+                        LogSection(title: "SCORE", badge: start == nil ? "sem gate · fallback 30s" : "\(windowTicks.count) leituras") {
+
+                            // Baseline = início da janela (tick de maior score)
+                            LogSubSection(title: "BASELINE (maior score)", badge: String(format: "score %.2f", score.bestScore)) {
+                                DataRow(key: "best_score",         value: String(format: "%.2f", score.bestScore))
+                                DataRow(key: "window_duration_s",  value: String(format: "%.1f s", durationS))
+                                if let g = viewModel.lastWindow?.gpsReadings.first {
+                                    DataRow(key: "gps_acc (m)",      value: String(format: "%.1f", g.accuracyMeters))
+                                    DataRow(key: "gps_speed (m/s)",  value: String(format: "%.2f", g.speedMps))
+                                    DataRow(key: "has_signal",       value: g.hasSignal ? "true" : "false")
+                                }
+                                if let b = viewModel.lastWindow?.pressureReadings.first {
+                                    DataRow(key: "pressure (hPa)",   value: String(format: "%.2f", b.hPa))
+                                }
+                                if let m = viewModel.lastWindow?.magneticReadings.first {
+                                    DataRow(key: "mag (µT)",         value: String(format: "%.2f", m.magnitude))
+                                }
+                            }
+
+                            // Score de cada leitura da janela
+                            LogSubSection(title: "SCORE POR LEITURA", badge: "\(windowTicks.count)") {
+                                if windowTicks.isEmpty {
+                                    DataRow(key: "—", value: "sem leituras")
+                                } else {
+                                    ForEach(Array(windowTicks.enumerated()), id: \.offset) { _, tick in
+                                        DataRow(
+                                            key: String(format: "t+%.0fs%@",
+                                                        Double(tick.timestampMs - refMs) / 1000.0,
+                                                        tick.gated ? "" : " · gate off"),
+                                            value: String(format: "%.2f", tick.score)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     // ── Secção 1: Janela raw ──────────
                     if let window = viewModel.lastWindow {
                         LogSection(title: "RAW SENSOR WINDOW", badge: "3 sources") {
