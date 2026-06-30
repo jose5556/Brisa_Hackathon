@@ -3,7 +3,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 
-from src.predict import predict_vertical_context
+from src.vertical_ml_predict import predict_vertical_context
 
 
 BAD_GPS_STREET_SAMPLE = {
