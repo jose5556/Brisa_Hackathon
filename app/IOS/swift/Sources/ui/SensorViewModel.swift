@@ -141,7 +141,7 @@ final class SensorViewModel: ObservableObject {
             guard let self else { return }
             Task { @MainActor in
                 let window = self.collector.getCurrentWindow()
-                let deltas = window.deltas(overMs: 5_000)
+                let deltas = window.deltas(overMs: 10_000)
                 self.liveWindow = window
                 self.liveDeltas = deltas
 
