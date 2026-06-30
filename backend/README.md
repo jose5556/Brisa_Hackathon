@@ -80,49 +80,51 @@ POST /predict
 Example for street level:
 
 ```bash
-curl -X POST http://localhost:8000/parking-events/analyze \
-  -H "Content-Type: application/json" \
-  -d '{
-    "gps_accuracy_mean": 24.0,
-    "gps_accuracy_max": 48.0,
-    "gps_accuracy_delta": 18.0,
-    "gps_lost_ratio": 0.22,
-    "wifi_count_mean": 20,
-    "wifi_count_delta": 1,
-    "wifi_rssi_mean": -62,
-    "ble_count_mean": 9,
-    "ble_count_delta": 1,
-    "ble_rssi_mean": -68,
-    "pressure_delta": 0.05,
-    "pressure_slope": 0.01,
-    "altitude_delta": 0.4,
-    "vertical_change_abs": 0.6,
-    "stationary_ratio": 0.85
-  }'
+curl -X POST "http://localhost:8000/parking-events/analyze" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "latitude": 41.1579,
+       "longitude": -8.6291,
+       "gps_accuracy_mean": 5.2,
+       "device_os_version": "iOS 17.5",
+       "app_version": "1.0.0",
+       "window_duration_s": 10.0,
+       "pressure_delta": -0.02,
+       "altitude_delta": 0.1,
+       "gnss_lost_ratio": 0.0,
+       "pressure_hpa": 1012.5,
+       "pressure_variance": 0.01,
+       "magnetic_variance_total": 0.05,
+       "magnetic_field_mean": 45.2,
+       "magnetic_field_delta": 1.2,
+       "gnss_accuracy_m": 5.2,
+       "gnss_accuracy_delta": 0.5
+     }'
 ```
 
 Example for underground:
 
 ```bash
-curl -k -X POST http://localhost:8000/parking-events/analyze \
-  -H "Content-Type: application/json" \
-  -d '{
-    "gps_accuracy_mean": 67.4,
-    "gps_accuracy_max": 108.2,
-    "gps_accuracy_delta": 52.8,
-    "gps_lost_ratio": 0.81,
-    "wifi_count_mean": 4,
-    "wifi_count_delta": -8,
-    "wifi_rssi_mean": -78,
-    "ble_count_mean": 3,
-    "ble_count_delta": -6,
-    "ble_rssi_mean": -84,
-    "pressure_delta": 0.92,
-    "pressure_slope": 0.14,
-    "altitude_delta": -5.3,
-    "vertical_change_abs": 4.9,
-    "stationary_ratio": 0.73
-  }'
+curl -X POST "http://localhost:8000/parking-events/analyze" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "latitude": 41.1579,
+       "longitude": -8.6291,
+       "gnss_accuracy_mean": 85.0,
+       "device_os_version": "iOS 17.5",
+       "app_version": "1.0.0",
+       "window_duration_s": 10.0,
+       "pressure_delta": -0.22,
+       "altitude_delta": -5.5,
+       "gnss_lost_ratio": 0.95,
+       "pressure_hpa": 1018.2,
+       "pressure_variance": 0.12,
+       "mag_variance_total": 0.85,
+       "magnetic_field_mean": 115.0,
+       "magnetic_field_delta": 14.5,
+       "gnss_accuracy_m": 85.0,
+       "gnss_accuracy_delta": 45.0
+     }'
 ```
 
 After, you can check the latest model anylises with a GET request:

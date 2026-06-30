@@ -8,7 +8,6 @@ from sqlalchemy.orm import Session
 
 from src.vertical_ml_predict import predict_vertical_context
 
-
 DEFAULT_CITY = "OPO"
 DEFAULT_PLATFORM = "ios"
 
@@ -58,14 +57,15 @@ def get_or_create_dev_user(db: Session) -> str:
             "consent_version": "dev-v1",
         },
     ).scalar_one()
-
+    
+    db.flush()  # Ensure the new user is persisted before returning the ID
     return str(user_id)
 
 
 def create_parking_session(db: Session, payload: dict[str, Any], user_id: str) -> str:
     latitude = payload.get("latitude")
     longitude = payload.get("longitude")
-    gps_accuracy = payload.get("gps_accuracy_mean")
+    gnss_accuracy = payload.get("gnss_accuracy_m") or payload.get("gnss_accuracy_mean")
 
     if latitude is not None and longitude is not None:
         session_id = db.execute(
@@ -100,7 +100,7 @@ def create_parking_session(db: Session, payload: dict[str, Any], user_id: str) -
                 "city": DEFAULT_CITY,
                 "longitude": longitude,
                 "latitude": latitude,
-                "location_accuracy_m": gps_accuracy,
+                "location_accuracy_m": gnss_accuracy,
                 "device_os_version": payload.get("device_os_version"),
                 "app_version": payload.get("app_version"),
             },
@@ -131,12 +131,12 @@ def create_parking_session(db: Session, payload: dict[str, Any], user_id: str) -
             {
                 "user_id": user_id,
                 "city": DEFAULT_CITY,
-                "location_accuracy_m": gps_accuracy,
+                "location_accuracy_m": gnss_accuracy,
                 "device_os_version": payload.get("device_os_version"),
                 "app_version": payload.get("app_version"),
             },
         ).scalar_one()
-
+    db.flush()
     return str(session_id)
 
 
@@ -150,8 +150,7 @@ def create_sensor_payload(
     window_end = datetime.now(timezone.utc)
     window_start = window_end - timedelta(seconds=duration)
 
-    gps_lost_ratio = float(payload.get("gps_lost_ratio", 0.0))
-    gnss_signal_drop = gps_lost_ratio > 0.2
+    gnss_lost_ratio = float(payload.get("gnss_lost_ratio", 0.0))
 
     payload_id = db.execute(
         text(
@@ -162,11 +161,18 @@ def create_sensor_payload(
                 window_end_at,
                 window_duration_s,
 
+                pressure_hpa,
                 pressure_delta_hpa,
+                pressure_variance,
                 altitude_change_m,
 
+                magnetic_variance_total,
+                magnetic_field_mean,
+                magnetic_field_delta,
+
                 gnss_accuracy_m,
-                gnss_signal_drop,
+                gnss_accuracy_delta,
+                gnss_lost_ratio,
 
                 raw_payload
             )
@@ -176,11 +182,18 @@ def create_sensor_payload(
                 :window_end_at,
                 :window_duration_s,
 
+                :pressure_hpa,
                 :pressure_delta_hpa,
+                :pressure_variance,
                 :altitude_change_m,
 
+                :magnetic_variance_total,
+                :magnetic_field_mean,
+                :magnetic_field_delta,
+
                 :gnss_accuracy_m,
-                :gnss_signal_drop,
+                :gnss_accuracy_delta,
+                :gnss_lost_ratio,
 
                 CAST(:raw_payload AS jsonb)
             )
@@ -193,16 +206,23 @@ def create_sensor_payload(
             "window_end_at": window_end,
             "window_duration_s": duration,
 
+            "pressure_hpa": payload.get("pressure_hpa"),
             "pressure_delta_hpa": payload.get("pressure_delta"),
+            "pressure_variance": payload.get("pressure_variance"),
             "altitude_change_m": payload.get("altitude_delta"),
-
-            "gnss_accuracy_m": payload.get("gps_accuracy_mean"),
-            "gnss_signal_drop": gnss_signal_drop,
-
+            
+            "magnetic_variance_total": payload.get("magnetic_variance_total"),
+            "magnetic_field_mean": payload.get("magnetic_field_mean"),
+            "magnetic_field_delta": payload.get("magnetic_field_delta"),
+            
+            "gnss_accuracy_m": payload.get("gnss_accuracy_m") or payload.get("gnss_accuracy_mean"),
+            "gnss_accuracy_delta": payload.get("gnss_accuracy_delta"),
+            "gnss_lost_ratio": gnss_lost_ratio,
             "raw_payload": json.dumps(payload),
         },
     ).scalar_one()
 
+    db.flush()
     return str(payload_id)
 
 

@@ -22,8 +22,8 @@ CREATE TYPE session_status AS ENUM (
 );
 
 CREATE TYPE model_decision AS ENUM (
-    'charge',             -- system decided to charge
-    'uncertain'           -- score below the minimum threshold
+    'Charge',             -- system decided to charge
+    'Don''t charge'           -- score below the minimum threshold
 );
 
 CREATE TYPE city_code AS ENUM (
@@ -128,29 +128,22 @@ CREATE TABLE sensor_payloads (
     pressure_delta_hpa      NUMERIC(7,4),     -- variation vs baseline
     pressure_variance       NUMERIC(10,6),    -- variance during window
     altitude_change_m       NUMERIC(7,3),     -- estimated altitude change
-    city_baseline_pressure  NUMERIC(8,3),
 
     -- Magnetometer
-    mag_x                   NUMERIC(10,4),
-    mag_y                   NUMERIC(10,4),
-    mag_z                   NUMERIC(10,4),
-    mag_variance_total      NUMERIC(10,6),    -- total 3-axis variance
-    mag_distortion_score    NUMERIC(5,4),     -- 0=clean, 1=highly disturbed
+    magnetic_variance_total NUMERIC(10,6),    -- magnetic field variance
+    magnetic_field_mean     NUMERIC(10, 4),   -- average magnetic field intensity
+    magnetic_field_delta    NUMERIC(10, 4),   -- variation between first and last reading
 
     -- GNSS quality
-    gnss_accuracy_m         NUMERIC(6,2),
-    hdop                    NUMERIC(5,2),    -- horizontal precision
-    satellite_count         INTEGER,         -- number of visible satellites   
-    gnss_signal_drop        BOOLEAN,         -- degradation during the window
-
-    -- Meteorological and urban conditions (for model error analysis)
-    weather_condition   TEXT,            -- 'clear' | 'rain' | 'overcast'
-    time_of_day         TEXT,            -- 'morning' | 'afternoon' | 'evening' | 'night'
+    gnss_accuracy_m         NUMERIC(6,2),    -- average GPS accuracy during the window
+    gnss_accuracy_delta      NUMERIC(6,2),    -- variation between best and worst accuracy (signal instability)
+    gnss_lost_ratio          NUMERIC(4,3),    -- % of readings without GPS signal (0.0 = always with signal, 1.0 = no signal)
 
     -- Full JSON payload (to re-process with future features)
     raw_payload             JSONB,
 
     received_at             TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    
 );
 
 CREATE INDEX idx_sensor_payloads_session ON sensor_payloads(session_id);
@@ -187,7 +180,7 @@ CREATE TABLE inference_logs (
     ml2_decision                 model_decision,
 
     -- Final pipeline decision
-    final_decision              model_decision NOT NULL DEFAULT 'uncertain',
+    final_decision              model_decision NOT NULL DEFAULT 'Don''t charge',
     final_confidence            NUMERIC(5,4)
 );
 
@@ -275,7 +268,7 @@ CREATE OR REPLACE VIEW v_model_performance AS
 SELECT
     il.final_decision,
     tl.location_type                            AS true_label,
-    (il.final_decision = 'charge' AND tl.location_type IN ('street_paid')) AS model_was_correct,
+    (il.final_decision = 'Charge' AND tl.location_type IN ('street_paid')) AS model_was_correct,
     COUNT(*)                                    AS count,
     AVG(il.final_confidence)                    AS avg_confidence
 FROM inference_logs il

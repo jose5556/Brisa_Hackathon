@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from src.database import get_db
+from src.database_session_connection import get_db
 from src.parking_service import analyze_and_store_parking_event
 from src.vertical_ml_predict import predict_vertical_context
 
