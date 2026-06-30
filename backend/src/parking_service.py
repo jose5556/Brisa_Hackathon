@@ -234,10 +234,10 @@ def create_inference_log(
 ) -> str:
     non_street_confidence = prediction["non_street_confidence"]
 
-    if non_street_confidence <= 0.25: #!!!!! According to the model's training, it gives us a value of 0.54, to remember to verify this value later.
-        final_decision = "charge"
+    if non_street_confidence <= 0.50:
+        final_decision = "Charge"
     else:
-        final_decision = "uncertain"
+        final_decision = "Don't charge"
 
     inference_id = db.execute(
         text(
@@ -289,7 +289,6 @@ def analyze_and_store_parking_event(
         session_id = create_parking_session(db, payload, user_id)
         payload_id = create_sensor_payload(db, session_id, payload)
 
-        start = time.perf_counter()
         prediction = predict_vertical_context(payload)
 
         inference_id = create_inference_log(
