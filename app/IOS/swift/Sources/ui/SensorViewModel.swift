@@ -33,6 +33,8 @@ final class SensorViewModel: ObservableObject {
     // Chama no .onAppear da View (equivalente a onStart)
     func startCollecting() {
         collector.startContinuous(windowSizeMs: 30_000)
+        // Recupera/reenvia payloads guardados offline (desta ou de sessões anteriores).
+        Task { await OfflineQueue.shared.startAutoFlush() }
     }
 
     // Chama no .onDisappear (equivalente a onStop)
@@ -108,24 +110,37 @@ final class SensorViewModel: ObservableObject {
               "Pressure=\(window.pressureReadings.count) " +
               "Magnetic=\(window.magneticReadings.count)")
 
+        // 1. Constrói o payload (meteorologia + features) — SEM rede para a API.
+        //    Assim os logs ficam disponíveis mesmo que o servidor esteja inacessível.
+        let payload: SensorPayload
         do {
-            // 1. Constrói o payload (meteorologia + features) — SEM rede para a API.
-            //    Assim os logs ficam disponíveis mesmo que o servidor esteja inacessível.
-            let payload = try await repository.buildPayload(window: window)
+            payload = try await repository.buildPayload(window: window)
             lastPayload = payload
+        } catch let e as SensorRepositoryError {
+            uploadResult = .error(message: e.localizedDescription)
+            return
+        } catch {
+            uploadResult = .error(message: error.localizedDescription)
+            return
+        }
 
-            // 2. Só depois tenta enviar para a API de classificação.
+        // 2. Só depois tenta enviar para a API de classificação.
+        do {
             let response = try await repository.send(payload: payload)
             uploadResult = .success(
                 classification: response.classification,
                 confidence: response.nonStreetConfidence
             )
         } catch SensorApiError.networkError(let e) {
-            uploadResult = .error(message: "Servidor inacessível: \(e.localizedDescription)")
+            // Sem rede → guarda o payload para reenvio automático (TTL 20 min).
+            await OfflineQueue.shared.enqueue(payload)
+            await OfflineQueue.shared.startAutoFlush()
+            let pending = await OfflineQueue.shared.pendingCount()
+            uploadResult = .error(
+                message: "Sem ligação — guardado para reenvio automático (\(pending) na fila). \(e.localizedDescription)"
+            )
         } catch SensorApiError.httpError(let code) {
             uploadResult = .error(message: "Erro do servidor: HTTP \(code)")
-        } catch let e as SensorRepositoryError {
-            uploadResult = .error(message: e.localizedDescription)
         } catch {
             uploadResult = .error(message: error.localizedDescription)
         }

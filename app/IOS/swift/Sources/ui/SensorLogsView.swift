@@ -47,15 +47,12 @@ struct SensorLogsView: View {
 
                     // ── Secção 2: Features extraídas ──
                     if let p = viewModel.lastPayload {
-                        LogSection(title: "FEATURE EXTRACTOR", badge: "19 features") {
+                        LogSection(title: "FEATURE EXTRACTOR", badge: "11 features") {
 
-                            LogSubSection(title: "GPS", badge: "6 features") {
+                            LogSubSection(title: "GPS", badge: "3 features") {
                                 DataRow(key: "gps_accuracy_mean",  value: String(format: "%.2f m", p.gpsAccuracyMean))
-                                DataRow(key: "gps_accuracy_max",   value: String(format: "%.2f m", p.gpsAccuracyMax))
                                 DataRow(key: "gps_accuracy_delta", value: String(format: "%.2f m", p.gpsAccuracyDelta))
                                 DataRow(key: "gps_lost_ratio",     value: String(format: "%.2f", p.gpsLostRatio))
-                                DataRow(key: "gps_speed_mean",     value: String(format: "%.2f m/s", p.gpsSpeedMean))
-                                DataRow(key: "gps_speed_max",      value: String(format: "%.2f m/s", p.gpsSpeedMax))
                             }
 
                             LogSubSection(title: "BAROMETER", badge: "5 features") {
@@ -66,21 +63,10 @@ struct SensorLogsView: View {
                                 DataRow(key: "city_baseline_pressure", value: String(format: "%.2f hPa", p.cityBaselinePressure))
                             }
 
-                            LogSubSection(title: "ALTITUDE", badge: "2 features") {
-                                DataRow(key: "altitude_delta",      value: String(format: "%.2f m", p.altitudeDelta))
-                                DataRow(key: "vertical_change_abs", value: String(format: "%.2f m", p.verticalChangeAbs))
-                            }
-
-                            LogSubSection(title: "MAGNETOMETER", badge: "4 features") {
+                            LogSubSection(title: "MAGNETOMETER", badge: "3 features") {
                                 DataRow(key: "magnetic_field_mean",     value: String(format: "%.2f µT", p.magneticFieldMean))
-                                DataRow(key: "magnetic_field_max",      value: String(format: "%.2f µT", p.magneticFieldMax))
                                 DataRow(key: "magnetic_field_delta",    value: String(format: "%.2f µT", p.magneticFieldDelta))
                                 DataRow(key: "magnetic_field_variance", value: String(format: "%.4f", p.magneticFieldVariance))
-                            }
-
-                            LogSubSection(title: "CONTEXT", badge: "2 features") {
-                                DataRow(key: "weather_condition", value: p.weatherCondition)
-                                DataRow(key: "time_of_day",       value: p.timeOfDay)
                             }
                         }
 
@@ -96,24 +82,16 @@ struct SensorLogsView: View {
                                     ("latitude",               String(format: "%.5f", p.latitude)),
                                     ("longitude",              String(format: "%.5f", p.longitude)),
                                     ("gps_accuracy_mean",      String(format: "%.2f", p.gpsAccuracyMean)),
-                                    ("gps_accuracy_max",       String(format: "%.2f", p.gpsAccuracyMax)),
                                     ("gps_accuracy_delta",     String(format: "%.2f", p.gpsAccuracyDelta)),
                                     ("gps_lost_ratio",         String(format: "%.2f", p.gpsLostRatio)),
-                                    ("gps_speed_mean",         String(format: "%.2f", p.gpsSpeedMean)),
-                                    ("gps_speed_max",          String(format: "%.2f", p.gpsSpeedMax)),
                                     ("pressure_hpa",           String(format: "%.2f", p.pressureHpa)),
                                     ("pressure_delta_hpa",     String(format: "%.2f", p.pressureDeltaHpa)),
                                     ("pressure_variance",      String(format: "%.4f", p.pressureVariance)),
                                     ("altitude_change_m",      String(format: "%.2f", p.altitudeChangeM)),
                                     ("city_baseline_pressure", String(format: "%.2f", p.cityBaselinePressure)),
-                                    ("altitude_delta",         String(format: "%.2f", p.altitudeDelta)),
-                                    ("vertical_change_abs",    String(format: "%.2f", p.verticalChangeAbs)),
                                     ("magnetic_field_mean",    String(format: "%.2f", p.magneticFieldMean)),
-                                    ("magnetic_field_max",     String(format: "%.2f", p.magneticFieldMax)),
                                     ("magnetic_field_delta",   String(format: "%.2f", p.magneticFieldDelta)),
                                     ("magnetic_field_variance",String(format: "%.4f", p.magneticFieldVariance)),
-                                    ("weather_condition",      "\"\(p.weatherCondition)\""),
-                                    ("time_of_day",            "\"\(p.timeOfDay)\""),
                                     ("window_start_at",        "\"\(p.windowStartAt)\""),
                                     ("window_end_at",          "\"\(p.windowEndAt)\""),
                                     ("window_duration_s",      String(format: "%.1f", p.windowDurationS)),
