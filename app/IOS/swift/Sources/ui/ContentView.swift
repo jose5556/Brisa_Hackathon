@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+import UIKit
 
 // ── Cores ViaVerde ────────────────────────────────────
 // Equivalente às val VV* do Kotlin
@@ -18,11 +19,13 @@ extension Color {
 struct ContentView: View {
 
     @StateObject private var viewModel = SensorViewModel()
+    @Environment(\.scenePhase) private var scenePhase
 
     // Animação da barra de progresso (equivalente ao progressAnim do Kotlin)
     @State private var progressValue: Double = 0
-    // Controla navegação para a tela de logs DEV
+    // Controla navegação para a tela de logs DEV e tela DATA
     @State private var showLogs = false
+    @State private var showData = false
     private let progressTimer = Timer.publish(every: 0.1, on: .main, in: .common).autoconnect()
 
     var isLoading: Bool { viewModel.uploadResult == .loading }
@@ -149,8 +152,11 @@ struct ContentView: View {
             }
         }
         .background(Color.vvBackground.ignoresSafeArea())
-        .onAppear  { viewModel.startCollecting() }
-        .onDisappear { viewModel.stopCollecting() }
+        .onAppear { viewModel.startCollecting() }
+        .onChange(of: scenePhase) { phase in
+            if phase == .active  { viewModel.startCollecting() }
+            if phase == .background { viewModel.stopCollecting() }
+        }
         .onReceive(progressTimer) { _ in
             guard isLoading else { progressValue = 0; return }
             progressValue = min(progressValue + (0.1 / 30.0), 1.0)
@@ -158,6 +164,9 @@ struct ContentView: View {
         }
         .navigationDestination(isPresented: $showLogs) {
             SensorLogsView(viewModel: viewModel)
+        }
+        .navigationDestination(isPresented: $showData) {
+            DataCollectionView(viewModel: viewModel)
         }
         } // NavigationStack
     }
@@ -193,20 +202,31 @@ struct ContentView: View {
             }
             .padding(.vertical, 28)
 
-            // Botão DEV no canto superior direito — abre a tela de logs
+            // Botões DEV e DATA no canto superior direito
             VStack {
                 HStack {
                     Spacer()
-                    Button("DEV") { showLogs = true }
-                        .font(.system(size: 10, weight: .bold))
-                        .kerning(1)
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
-                        .background(Color.white.opacity(0.15))
-                        .cornerRadius(8)
-                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.3), lineWidth: 1))
-                        .padding(.trailing, 16)
+                    HStack(spacing: 6) {
+                        Button("DATA") { showData = true }
+                            .font(.system(size: 10, weight: .bold))
+                            .kerning(1)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(Color.white.opacity(0.15))
+                            .cornerRadius(8)
+                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.3), lineWidth: 1))
+                        Button("DEV") { showLogs = true }
+                            .font(.system(size: 10, weight: .bold))
+                            .kerning(1)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(Color.white.opacity(0.15))
+                            .cornerRadius(8)
+                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.3), lineWidth: 1))
+                    }
+                    .padding(.trailing, 16)
                 }
                 Spacer()
             }
