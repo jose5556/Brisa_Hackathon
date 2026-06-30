@@ -56,8 +56,9 @@ from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import LabelEncoder
 
 # ── Paths ────────────────────────────────────────────────────────────────────
-DATA_DIR  = Path("../database/data_trainning_ml1/data")
-MODEL_DIR = Path("../models")
+BASE_DIR = Path(__file__).resolve().parent.parent
+DATA_DIR = BASE_DIR / "database" / "data_trainning_ml1" / "data"
+MODEL_DIR = BASE_DIR / "models"
 MODEL_DIR.mkdir(exist_ok=True)
 
 DEFAULT_TRAIN = DATA_DIR / "synthetic_vertical_train.csv"
@@ -71,12 +72,12 @@ FEATURE_COLS = [
     "pressure_variance",
     "altitude_change_m",
     "pressure_relative_to_surface_hpa",  # derived: pressure_hpa - surface_pressure(elevation)
-    "mag_variance_total",
+    "magnetic_variance_total",
     "magnetic_field_mean",
     "magnetic_field_delta",
     "gnss_accuracy_m",
-    "gps_accuracy_delta",
-    "gps_lost_ratio",
+    "gnss_accuracy_delta",
+    "gnss_lost_ratio",
 ]
 
 TARGET_COL = "label"
@@ -409,8 +410,8 @@ def verify_predict_interface(artifact_path: Path):
         "magnetic_field_mean": 85.3,
         "magnetic_field_delta": 14.2,
         "gnss_accuracy_m": 95.0,
-        "gps_accuracy_delta": 45.0,
-        "gps_lost_ratio": 0.93,
+        "gnss_accuracy_delta": 45.0,
+        "gnss_lost_ratio": 0.93,
     }
 
     row = {f: mock_payload.get(f, np.nan) for f in features}
@@ -425,7 +426,7 @@ def verify_predict_interface(artifact_path: Path):
 
     non_street_confidence = round(underground_score + above_score, 4)
     classification = max(probabilities_by_class, key=probabilities_by_class.get)
-    decision = "charge" if non_street_confidence < threshold else "uncertain"
+    decision = "Charge" if non_street_confidence < threshold else "Don't charge"
 
     print(f"  Mock payload (should be → underground):")
     print(f"    probabilities      : {probabilities_by_class}")

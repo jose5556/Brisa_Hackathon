@@ -18,6 +18,19 @@ def predict_vertical_context(payload: dict) -> dict:
     model = bundle["model"]
     features = bundle["features"]
 
+    mapping = {
+        "pressure_hpa": payload.get("pressure_hpa"),
+        "pressure_delta_hpa": payload.get("pressure_delta"),  # curl: pressure_delta
+        "pressure_variance": payload.get("pressure_variance"),
+        "altitude_change_m": payload.get("altitude_delta"),    # curl: altitude_delta
+        "magnetic_variance_total": payload.get("magnetic_variance_total"),
+        "magnetic_field_mean": payload.get("magnetic_field_mean"),
+        "magnetic_field_delta": payload.get("magnetic_field_delta"),
+        "gnss_accuracy_m": payload.get("gnss_accuracy_m") or payload.get("gnss_accuracy_mean"),
+        "gnss_accuracy_delta": payload.get("gnss_accuracy_delta"),
+        "gnss_lost_ratio": payload.get("gnss_lost_ratio") or payload.get("gps_lost_ratio"), # curl: gnss_lost_ratio
+    }
+
     row = {}
 
     for feature in features:

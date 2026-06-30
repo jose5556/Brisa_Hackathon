@@ -62,11 +62,8 @@ install: venv
 	$(PIP_VENV) install --upgrade pip
 	$(PIP_VENV) install -r requirements.txt
 
-data:
-	$(PYTHON_VENV) scripts/generate_synthetic_data.py
-
-train: data
-	$(PYTHON_VENV) scripts/train_model.py
+train: 
+	$(PYTHON_VENV) scripts/train_vertical_lgbm.py
 
 cert:
 	@mkdir -p $(CERT_DIR)

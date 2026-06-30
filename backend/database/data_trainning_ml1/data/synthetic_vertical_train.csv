@@ -1,4 +1,4 @@
-label,label_noisy,city,ground_elevation_m,pressure_hpa,pressure_delta_hpa,pressure_variance,altitude_change_m,pressure_relative_to_surface_hpa,mag_variance_total,magnetic_field_mean,magnetic_field_delta,gnss_accuracy_m,gps_accuracy_delta,gps_lost_ratio,time_of_day,weather_condition
+label,label_noisy,city,ground_elevation_m,pressure_hpa,pressure_delta_hpa,pressure_variance,altitude_change_m,pressure_relative_to_surface_hpa,magnetic_variance_total,magnetic_field_mean,magnetic_field_delta,gnss_accuracy_m,gnss_accuracy_delta,gnss_lost_ratio,time_of_day,weather_condition
 street_level,False,LIS,75.4,1004.424,-0.172,0.060478,-0.239,0.1223761722992549,0.007498,40.0462,-0.8204,4.91,1.83,0.015,evening,rain
 street_level,False,OPO,148.1,993.697,-0.1022,0.017394,-1.071,-2.051520351350632,0.0541,28.5891,-0.1744,4.27,3.3,0.041,night,clear
 street_level,False,OPO,64.8,1006.131,,0.022049,1.402,0.5761717233979198,0.071065,35.8406,2.5448,23.36,6.64,0.034,evening,clear

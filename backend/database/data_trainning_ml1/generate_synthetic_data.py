@@ -19,12 +19,12 @@ Design principles
     * Magnetometer: underground environments have severe ferromagnetic interference
       from rebar, metro rails, pipes; above-ground garages have moderate steel
       structure interference; streets are baseline urban.
-    * GNSS: underground = total loss (gps_lost_ratio → 1.0, accuracy collapses
+    * GNSS: underground = total loss (gnss_lost_ratio → 1.0, accuracy collapses
       to last-fix degraded value); above-ground multi-storey = partial occlusion;
       street = variable urban canyon effect.
 - Real failure modes are injected:
     * Barometer drift (sensor warm-up)
-    * GPS multipath in dense urban canyons (Baixa do Porto, Av. Aliados)
+    * GNSS multipath in dense urban canyons (Baixa do Porto, Av. Aliados)
     * Magnetometer saturation near metro lines (Porto Metro Linha D, E)
     * Missing/None values (device firmware issues, BLE sensor drops)
     * Mislabelled outliers (~3% noise)
@@ -145,16 +145,16 @@ def make_street_level(city: str) -> dict:
     canyon_effect = rng.random() < 0.35   # 35% in urban canyon (Aliados, Clérigos, etc.)
     if canyon_effect:
         gnss_acc = rng.uniform(8, 28)
-        gps_delta = rng.uniform(3, 15)
-        gps_lost = rng.uniform(0.0, 0.15)
+        gnss_delta = rng.uniform(3, 15)
+        gnss_lost = rng.uniform(0.0, 0.15)
     else:
         gnss_acc = rng.uniform(3, 10)
-        gps_delta = rng.uniform(0.5, 4)
-        gps_lost = rng.uniform(0.0, 0.04)
+        gnss_delta = rng.uniform(0.5, 4)
+        gnss_lost = rng.uniform(0.0, 0.04)
 
     gnss_acc = add_sensor_noise(gnss_acc, sigma=1.5, missing_prob=0.01)
-    gps_delta = add_sensor_noise(gps_delta, sigma=0.5)
-    gps_lost = clamp(float(gps_lost + rng.normal(0, 0.01)), 0.0, 1.0)
+    gnss_delta = add_sensor_noise(gnss_delta, sigma=0.5)
+    gnss_lost = clamp(float(gnss_lost + rng.normal(0, 0.01)), 0.0, 1.0)
 
     return {
         "label": "street_level",
@@ -164,12 +164,12 @@ def make_street_level(city: str) -> dict:
         "pressure_delta_hpa": round(p_delta, 4) if p_delta else None,
         "pressure_variance": round(p_var, 6),
         "altitude_change_m": round(alt_change, 3),
-        "mag_variance_total": round(mag_var, 6),
+        "magnetic_variance_total": round(mag_var, 6),
         "magnetic_field_mean": round(mag_mean, 4) if mag_mean else None,
         "magnetic_field_delta": round(mag_delta, 4),
         "gnss_accuracy_m": round(gnss_acc, 2) if gnss_acc else None,
-        "gps_accuracy_delta": round(gps_delta, 2) if gps_delta else None,
-        "gps_lost_ratio": round(gps_lost, 3),
+        "gnss_accuracy_delta": round(gnss_delta, 2) if gnss_delta else None,
+        "gnss_lost_ratio": round(gnss_lost, 3),
     }
 
 
@@ -184,7 +184,7 @@ def make_underground(city: str) -> dict:
       is typically -6% grade → ~1.5 m depth per 25 m horizontal → ~0.18 hPa/s)
     - Magnetometer: extreme variance and high mean due to rebar grid, steel I-beams,
       drainage pipes, metal doors, vehicles — highly ferromagnetic environment
-    - GNSS: total or near-total loss. gps_lost_ratio → 0.85–1.0.
+    - GNSS: total or near-total loss. gnss_lost_ratio → 0.85–1.0.
       gnss_accuracy degrades to last-fix coasting (25–200 m).
     - Altitude change: negative (descended)
     """
@@ -218,11 +218,11 @@ def make_underground(city: str) -> dict:
     mag_delta = rng.normal(0, 12.0)       # large swings as vehicle moves past structures
 
     # GNSS: almost total loss
-    gps_lost = clamp(rng.uniform(0.80, 1.0), 0.0, 1.0)
+    gnss_lost = clamp(rng.uniform(0.80, 1.0), 0.0, 1.0)
     gnss_acc = rng.uniform(25, 200)        # last-fix coasting, degraded fast
-    gps_delta = rng.uniform(10, 80)        # massive delta between first/last reading in window
+    gnss_delta = rng.uniform(10, 80)        # massive delta between first/last reading in window
     gnss_acc = add_sensor_noise(gnss_acc, sigma=8.0, missing_prob=0.05)
-    gps_delta = add_sensor_noise(gps_delta, sigma=5.0, missing_prob=0.05)
+    gnss_delta = add_sensor_noise(gnss_delta, sigma=5.0, missing_prob=0.05)
 
     return {
         "label": "underground",
@@ -232,12 +232,12 @@ def make_underground(city: str) -> dict:
         "pressure_delta_hpa": round(p_delta, 4) if p_delta else None,
         "pressure_variance": round(p_var, 6),
         "altitude_change_m": round(alt_change, 3),
-        "mag_variance_total": round(mag_var, 6),
+        "magnetic_variance_total": round(mag_var, 6),
         "magnetic_field_mean": round(mag_mean, 4) if mag_mean else None,
         "magnetic_field_delta": round(mag_delta, 4),
         "gnss_accuracy_m": round(gnss_acc, 2) if gnss_acc else None,
-        "gps_accuracy_delta": round(gps_delta, 2) if gps_delta else None,
-        "gps_lost_ratio": round(gps_lost, 3),
+        "gnss_accuracy_delta": round(gnss_delta, 2) if gnss_delta else None,
+        "gnss_lost_ratio": round(gnss_lost, 3),
     }
 
 
@@ -281,16 +281,16 @@ def make_above(city: str) -> dict:
     # GNSS: partial sky view — highly dependent on bay position (inner vs perimeter)
     inner_bay = rng.random() < 0.40        # inner bays have worse sky view
     if inner_bay:
-        gps_lost = clamp(rng.uniform(0.30, 0.70), 0.0, 1.0)
+        gnss_lost = clamp(rng.uniform(0.30, 0.70), 0.0, 1.0)
         gnss_acc = rng.uniform(15, 60)
-        gps_delta = rng.uniform(8, 35)
+        gnss_delta = rng.uniform(8, 35)
     else:
-        gps_lost = clamp(rng.uniform(0.05, 0.35), 0.0, 1.0)
+        gnss_lost = clamp(rng.uniform(0.05, 0.35), 0.0, 1.0)
         gnss_acc = rng.uniform(6, 25)
-        gps_delta = rng.uniform(3, 18)
+        gnss_delta = rng.uniform(3, 18)
 
     gnss_acc = add_sensor_noise(gnss_acc, sigma=3.0, missing_prob=0.03)
-    gps_delta = add_sensor_noise(gps_delta, sigma=2.0, missing_prob=0.03)
+    gnss_delta = add_sensor_noise(gnss_delta, sigma=2.0, missing_prob=0.03)
 
     return {
         "label": "above",
@@ -300,12 +300,12 @@ def make_above(city: str) -> dict:
         "pressure_delta_hpa": round(p_delta, 4) if p_delta else None,
         "pressure_variance": round(p_var, 6),
         "altitude_change_m": round(alt_change, 3),
-        "mag_variance_total": round(mag_var, 6),
+        "magnetic_variance_total": round(mag_var, 6),
         "magnetic_field_mean": round(mag_mean, 4) if mag_mean else None,
         "magnetic_field_delta": round(mag_delta, 4),
         "gnss_accuracy_m": round(gnss_acc, 2) if gnss_acc else None,
-        "gps_accuracy_delta": round(gps_delta, 2) if gps_delta else None,
-        "gps_lost_ratio": round(gps_lost, 3),
+        "gnss_accuracy_delta": round(gnss_delta, 2) if gnss_delta else None,
+        "gnss_lost_ratio": round(gnss_lost, 3),
     }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -388,8 +388,8 @@ def generate_dataset(n_total: int = 5000) -> pd.DataFrame:
         "ground_elevation_m",
         "pressure_hpa", "pressure_delta_hpa", "pressure_variance", "altitude_change_m",
         "pressure_relative_to_surface_hpa",
-        "mag_variance_total", "magnetic_field_mean", "magnetic_field_delta",
-        "gnss_accuracy_m", "gps_accuracy_delta", "gps_lost_ratio",
+        "magnetic_variance_total", "magnetic_field_mean", "magnetic_field_delta",
+        "gnss_accuracy_m", "gnss_accuracy_delta", "gnss_lost_ratio",
         "time_of_day", "weather_condition",
     ]
     df = df[col_order]
@@ -430,7 +430,7 @@ def main(n_total: int = 5000):
 
     print("\n── GNSS stats by label ──")
     print(
-        df.groupby("label")[["gnss_accuracy_m", "gps_lost_ratio"]]
+        df.groupby("label")[["gnss_accuracy_m", "gnss_lost_ratio"]]
         .agg(["mean", "std"])
         .round(3)
         .to_string()
@@ -438,7 +438,7 @@ def main(n_total: int = 5000):
 
     print("\n── Magnetometer stats by label ──")
     print(
-        df.groupby("label")[["mag_variance_total", "magnetic_field_mean"]]
+        df.groupby("label")[["magnetic_variance_total", "magnetic_field_mean"]]
         .agg(["mean", "std"])
         .round(3)
         .to_string()
@@ -450,8 +450,8 @@ def main(n_total: int = 5000):
     feature_cols = [
         "pressure_hpa", "pressure_delta_hpa", "pressure_variance", "altitude_change_m",
         "pressure_relative_to_surface_hpa",
-        "mag_variance_total", "magnetic_field_mean", "magnetic_field_delta",
-        "gnss_accuracy_m", "gps_accuracy_delta", "gps_lost_ratio",
+        "magnetic_variance_total", "magnetic_field_mean", "magnetic_field_delta",
+        "gnss_accuracy_m", "gnss_accuracy_delta", "gnss_lost_ratio",
     ]
     missing_rates = (df[feature_cols].isna().mean() * 100).round(2)
     print("\n── Missing value rates (%) ──")
