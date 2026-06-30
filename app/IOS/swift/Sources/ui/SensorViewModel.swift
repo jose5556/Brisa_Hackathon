@@ -15,6 +15,8 @@ final class SensorViewModel: ObservableObject {
     @Published var lastWindow: SensorWindow? = nil
     // Janela ao vivo — atualizada a 1 Hz enquanto a tela de logs estiver aberta
     @Published var liveWindow: SensorWindow = SensorWindow()
+    // Deltas ao vivo — Δ de cada sensor nos últimos 10s, atualizado a 1 Hz
+    @Published var liveDeltas: SensorDeltas? = nil
 
     // ── Captura manual (janela dinâmica) ──────────────
     // isManualCapture: true entre "Iniciar" e "Analisar ambiente".
@@ -138,7 +140,20 @@ final class SensorViewModel: ObservableObject {
         liveTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             guard let self else { return }
             Task { @MainActor in
-                self.liveWindow = self.collector.getCurrentWindow()
+                let window = self.collector.getCurrentWindow()
+                let deltas = window.deltas(overMs: 5_000)
+                self.liveWindow = window
+                self.liveDeltas = deltas
+
+                // Log dos Δ (últimos 10s) a 1 Hz
+                func fmt(_ v: Double?, _ unit: String) -> String {
+                    guard let v else { return "n/a" }
+                    return String(format: "%+.2f%@", v, unit)
+                }
+                print("[Δ 10s] pressure=\(fmt(deltas.pressureHpa, "hPa")) " +
+                      "gps_acc=\(fmt(deltas.gpsAccuracyM, "m")) " +
+                      "gps_speed=\(fmt(deltas.gpsSpeedMps, "m/s")) " +
+                      "mag=\(fmt(deltas.magneticUt, "µT"))")
             }
         }
     }

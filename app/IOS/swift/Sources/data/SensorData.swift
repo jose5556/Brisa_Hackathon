@@ -60,6 +60,18 @@ struct SensorWindow {
     var magneticReadings: [MagneticReading] = []
 }
 
+// ── SensorDeltas ──────────────────────────────────────
+// Variação crua de cada sensor entre a leitura mais recente e a leitura
+// de há `overMs` atrás. Sem normalização nem pesos — só observação para
+// depois calibrar ranges/pesos com dados reais.
+// Cada campo é nil quando não há leituras suficientes para o cálculo.
+struct SensorDeltas {
+    let pressureHpa:  Double?   // Δ pressão (hPa)
+    let gpsAccuracyM: Double?   // Δ precisão GPS (m)
+    let gpsSpeedMps:  Double?   // Δ velocidade GPS (m/s)
+    let magneticUt:   Double?   // Δ magnitude do campo magnético (µT)
+}
+
 // ── GpsReading ────────────────────────────────────────
 struct GpsReading {
     let latitude:       Double
@@ -232,6 +244,43 @@ extension SensorWindow {
             windowEndAt:           windowEnd.iso8601,
             windowDurationS:       windowDurationS
         )
+    }
+}
+
+// ── SensorWindow → SensorDeltas ───────────────────────
+extension SensorWindow {
+
+    /// Δ de cada sensor: leitura mais recente menos a leitura de há `overMs` atrás.
+    /// A "leitura de há `overMs` atrás" é a amostra cujo timestamp está mais
+    /// próximo de (timestamp_mais_recente − overMs).
+    func deltas(overMs: Int64 = 10_000) -> SensorDeltas {
+        SensorDeltas(
+            pressureHpa:  Self.delta(pressureReadings, overMs: overMs,
+                                     time: { $0.timestampMs }, value: { Double($0.hPa) }),
+            gpsAccuracyM: Self.delta(gpsReadings, overMs: overMs,
+                                     time: { $0.timestampMs }, value: { Double($0.accuracyMeters) }),
+            gpsSpeedMps:  Self.delta(gpsReadings, overMs: overMs,
+                                     time: { $0.timestampMs }, value: { $0.speedMps }),
+            magneticUt:   Self.delta(magneticReadings, overMs: overMs,
+                                     time: { $0.timestampMs }, value: { $0.magnitude })
+        )
+    }
+
+    /// Δ genérico: valor da última amostra menos o da amostra-âncora (~overMs antes).
+    /// Retorna nil se o buffer estiver vazio ou se âncora e última coincidirem.
+    private static func delta<T>(
+        _ readings: [T],
+        overMs: Int64,
+        time:  (T) -> Int64,
+        value: (T) -> Double
+    ) -> Double? {
+        guard let last = readings.last else { return nil }
+        let targetMs = time(last) - overMs
+        guard let past = readings.min(by: {
+            abs(time($0) - targetMs) < abs(time($1) - targetMs)
+        }) else { return nil }
+        guard time(last) != time(past) else { return nil }
+        return value(last) - value(past)
     }
 }
 
