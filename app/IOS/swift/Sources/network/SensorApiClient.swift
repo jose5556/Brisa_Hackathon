@@ -8,7 +8,7 @@ import Foundation
 // private let baseURL = "http://172.20.10.8:8000/"
 //
 // Simulator (API a correr em localhost no Mac):
-private let baseURL = "http://100.103.161.134:8000/"
+private let baseURL = "http://100.121.113.91:8000/"
 
 // ── Errors ────────────────────────────────────────────
 enum SensorApiError: Error, LocalizedError {

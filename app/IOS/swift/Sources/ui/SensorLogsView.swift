@@ -21,7 +21,7 @@ struct SensorLogsView: View {
                     if let score = viewModel.lastScore {
                         let start    = score.bestTimestampMs
                         let allTicks = score.ticks
-                        let refMs    = allTicks.first?.timestampMs ?? 0   // t+0 = leitura mais antiga
+                        let refMs    = allTicks.last?.timestampMs ?? 0    // t0 = leitura mais recente (botão)
                         let durationS: Double = {
                             if let s = start, let last = allTicks.last { return Double(last.timestampMs - s) / 1000.0 }
                             return viewModel.lastPayload?.windowDurationS ?? 0
@@ -51,7 +51,7 @@ struct SensorLogsView: View {
                                 if allTicks.isEmpty {
                                     DataRow(key: "—", value: "sem leituras")
                                 } else {
-                                    ForEach(Array(allTicks.enumerated()), id: \.offset) { _, tick in
+                                    ForEach(Array(allTicks.enumerated()).reversed(), id: \.offset) { _, tick in
                                         ScoreTickRow(tick: tick, refMs: refMs, isBest: tick.timestampMs == start)
                                     }
                                 }
@@ -361,7 +361,7 @@ struct ScoreTickRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
             HStack(spacing: 6) {
-                Text(String(format: "t+%.0fs", Double(tick.timestampMs - refMs) / 1000.0))
+                Text(String(format: "t-%.0fs", Double(refMs - tick.timestampMs) / 1000.0))
                     .foregroundColor(isBest ? .vvGreen : Color(white: 0.6))
                 if isBest {
                     Text("◄ baseline").foregroundColor(.vvGreen)
