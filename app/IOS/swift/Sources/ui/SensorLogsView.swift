@@ -17,62 +17,42 @@ struct SensorLogsView: View {
                     // ── Barra de estado dos sensores ──
                     sensorsStrip
 
-                    // ── Secção 0: Deltas ao vivo ──────
-                    LogSection(title: "DELTAS", badge: "últimos 10s · 1 Hz") {
-                        VStack(alignment: .leading, spacing: 2) {
-                            DataRow(key: "pressure",  value: deltaText(viewModel.liveDeltas?.pressureHpa,  "hPa"))
-                            DataRow(key: "gps_acc",   value: deltaText(viewModel.liveDeltas?.gpsAccuracyM, "m"))
-                            DataRow(key: "gps_speed", value: deltaText(viewModel.liveDeltas?.gpsSpeedMps,  "m/s"))
-                            DataRow(key: "mag",       value: deltaText(viewModel.liveDeltas?.magneticUt,   "µT"))
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                    }
-
-                    // ── Secção: Score & Baseline ──────
+                    // ── Secção: Score ─────────────────
                     if let score = viewModel.lastScore {
-                        let start = score.bestTimestampMs
-                        // Leituras da janela [maior score → agora]. Em fallback (sem gate), mostra todas.
-                        let windowTicks = start.map { s in score.ticks.filter { $0.timestampMs >= s } } ?? score.ticks
+                        let start    = score.bestTimestampMs
+                        let allTicks = score.ticks
+                        let refMs    = allTicks.first?.timestampMs ?? 0   // t+0 = leitura mais antiga
                         let durationS: Double = {
-                            if let s = start, let last = windowTicks.last {
-                                return Double(last.timestampMs - s) / 1000.0
-                            }
+                            if let s = start, let last = allTicks.last { return Double(last.timestampMs - s) / 1000.0 }
                             return viewModel.lastPayload?.windowDurationS ?? 0
                         }()
-                        let refMs = start ?? windowTicks.first?.timestampMs ?? 0
 
-                        LogSection(title: "SCORE", badge: start == nil ? "sem gate · fallback 30s" : "\(windowTicks.count) leituras") {
+                        LogSection(title: "SCORE", badge: "\(allTicks.count) leituras\(start == nil ? " · sem gate" : "")") {
 
-                            // Baseline = início da janela (tick de maior score)
+                            // Baseline = tick de maior score (início da janela)
                             LogSubSection(title: "BASELINE (maior score)", badge: String(format: "score %.2f", score.bestScore)) {
-                                DataRow(key: "best_score",         value: String(format: "%.2f", score.bestScore))
-                                DataRow(key: "window_duration_s",  value: String(format: "%.1f s", durationS))
+                                DataRow(key: "best_score",        value: String(format: "%.2f", score.bestScore))
+                                DataRow(key: "window_duration_s", value: String(format: "%.1f s", durationS))
                                 if let g = viewModel.lastWindow?.gpsReadings.first {
-                                    DataRow(key: "gps_acc (m)",      value: String(format: "%.1f", g.accuracyMeters))
-                                    DataRow(key: "gps_speed (m/s)",  value: String(format: "%.2f", g.speedMps))
-                                    DataRow(key: "has_signal",       value: g.hasSignal ? "true" : "false")
+                                    DataRow(key: "gps_acc (m)",     value: String(format: "%.1f", g.accuracyMeters))
+                                    DataRow(key: "gps_speed (m/s)", value: String(format: "%.2f", g.speedMps))
+                                    DataRow(key: "has_signal",      value: g.hasSignal ? "true" : "false")
                                 }
                                 if let b = viewModel.lastWindow?.pressureReadings.first {
-                                    DataRow(key: "pressure (hPa)",   value: String(format: "%.2f", b.hPa))
+                                    DataRow(key: "pressure (hPa)",  value: String(format: "%.2f", b.hPa))
                                 }
                                 if let m = viewModel.lastWindow?.magneticReadings.first {
-                                    DataRow(key: "mag (µT)",         value: String(format: "%.2f", m.magnitude))
+                                    DataRow(key: "mag (µT)",        value: String(format: "%.2f", m.magnitude))
                                 }
                             }
 
-                            // Score de cada leitura da janela
-                            LogSubSection(title: "SCORE POR LEITURA", badge: "\(windowTicks.count)") {
-                                if windowTicks.isEmpty {
+                            // Score total + Δ e pontuação por sensor, de TODAS as leituras
+                            LogSubSection(title: "SCORE POR LEITURA", badge: "\(allTicks.count)") {
+                                if allTicks.isEmpty {
                                     DataRow(key: "—", value: "sem leituras")
                                 } else {
-                                    ForEach(Array(windowTicks.enumerated()), id: \.offset) { _, tick in
-                                        DataRow(
-                                            key: String(format: "t+%.0fs%@",
-                                                        Double(tick.timestampMs - refMs) / 1000.0,
-                                                        tick.gated ? "" : " · gate off"),
-                                            value: String(format: "%.2f", tick.score)
-                                        )
+                                    ForEach(Array(allTicks.enumerated()), id: \.offset) { _, tick in
+                                        ScoreTickRow(tick: tick, refMs: refMs, isBest: tick.timestampMs == start)
                                     }
                                 }
                             }
@@ -279,12 +259,6 @@ struct SensorLogsView: View {
         .overlay(Divider().background(Color(white: 0.1)), alignment: .bottom)
     }
 
-    // Formata um Δ com sinal e unidade; "—" quando ainda não há dados.
-    private func deltaText(_ value: Double?, _ unit: String) -> String {
-        guard let value else { return "—" }
-        return String(format: "%+.2f %@", value, unit)
-    }
-
     // Extrai o host do baseURL para mostrar no PAYLOAD SENT
     private var baseHost: String {
         let url = "100.103.161.134:8000"
@@ -374,6 +348,55 @@ struct LogSubSection<Content: View>: View {
             }
         }
         .overlay(Divider().background(Color(white: 0.07)), alignment: .bottom)
+    }
+}
+
+// ── ScoreTickRow ──────────────────────────────────────
+// Uma leitura: tempo, score total (raw + ema) e, por sensor, Δ bruto + pontuação.
+struct ScoreTickRow: View {
+    let tick: ScoredTick
+    let refMs: Int64
+    let isBest: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            HStack(spacing: 6) {
+                Text(String(format: "t+%.0fs", Double(tick.timestampMs - refMs) / 1000.0))
+                    .foregroundColor(isBest ? .vvGreen : Color(white: 0.6))
+                if isBest {
+                    Text("◄ baseline").foregroundColor(.vvGreen)
+                } else if !tick.gated {
+                    Text("gate off").foregroundColor(.orange)
+                }
+                Spacer()
+                Text(String(format: "raw %.2f · ema %.2f", tick.rawScore, tick.score))
+                    .foregroundColor(isBest ? .vvGreen : Color(white: 0.88))
+            }
+            .font(.system(size: 10, weight: .bold, design: .monospaced))
+
+            sensorLine("acc", tick.dAcc,   "m",   tick.sAcc)
+            sensorLine("spd", tick.dSpeed, "m/s", tick.sSpeed)
+            sensorLine("mag", tick.dMag,   "µT",  tick.sMag)
+            sensorLine("prs", tick.dPress, "hPa", tick.sPress)
+        }
+        .padding(.vertical, 4)
+        .overlay(Divider().background(Color(white: 0.08)), alignment: .bottom)
+    }
+
+    // Uma linha de sensor: nome · Δ bruto · pontuação (contributo)
+    private func sensorLine(_ name: String, _ delta: Double, _ unit: String, _ scoreVal: Double) -> some View {
+        HStack(spacing: 0) {
+            Text(name)
+                .foregroundColor(Color(white: 0.35))
+                .frame(width: 30, alignment: .leading)
+            Text(String(format: "Δ%.2f %@", delta, unit))
+                .foregroundColor(Color(white: 0.6))
+                .frame(width: 96, alignment: .leading)
+            Spacer()
+            Text(String(format: "%.2f", scoreVal))
+                .foregroundColor(scoreVal > 0 ? Color(white: 0.85) : Color(white: 0.3))
+        }
+        .font(.system(size: 9, design: .monospaced))
     }
 }
 

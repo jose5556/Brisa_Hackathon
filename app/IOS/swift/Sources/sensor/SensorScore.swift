@@ -2,8 +2,9 @@ import Foundation
 
 // ── Scoring por tick ──────────────────────────────────
 // Calcula, sobre um buffer de amostras, um "score de transição" por tick (~1 Hz)
-// usando a fusão de 3 sinais: GPS accuracy, GPS speed e magnetómetro.
-// O barómetro NÃO entra no score — fica reservado para a feature de piso.
+// usando a fusão de 4 sinais: GPS accuracy, GPS speed, magnetómetro e pressão.
+// A pressão contribui de forma opcional (0 se o barómetro não tiver leituras),
+// para não anular o tick em dispositivos sem barómetro.
 //
 // O tick de score mais alto marca o INÍCIO da janela de captura: é o momento,
 // ainda em rua válida, em que os sensores mais variaram. A janela vai daí até
@@ -21,8 +22,22 @@ import Foundation
 
 struct ScoredTick {
     let timestampMs: Int64
-    let score: Double      // score suavizado (EMA) deste tick
     let gated: Bool        // passou o gate de rua (GPS + velocidade)?
+
+    // Variação bruta de cada sensor neste tick (unidades físicas).
+    let dAcc:   Double     // m
+    let dSpeed: Double     // m/s
+    let dMag:   Double     // µT
+    let dPress: Double     // hPa
+
+    // Pontuação de cada sensor (normalizada × peso; 0 se o gate falhou).
+    let sAcc:   Double
+    let sSpeed: Double
+    let sMag:   Double
+    let sPress: Double
+
+    let rawScore: Double   // soma dos 4 contributos (antes da EMA)
+    let score:    Double   // score suavizado (EMA)
 }
 
 struct WindowScore {
@@ -39,10 +54,11 @@ extension SensorWindow {
         var minSpeedMps: Double = 2.5     // gate de rua (Passo 2)
         var deadband:    Double = 0.5     // em σ: abaixo disto → 0 (Passo 4)
         var cap:         Double = 3.0     // em σ: tecto por sensor (Passo 4)
-        var weightAcc:   Double = 1.0     // pesos (Passo 5)
-        var weightSpeed: Double = 1.0
-        var weightMag:   Double = 1.0
-        var emaAlpha:    Double = 0.5     // suavização (Passo 7)
+        var weightAcc:      Double = 1.0  // pesos (Passo 5)
+        var weightSpeed:    Double = 1.0
+        var weightMag:      Double = 1.0
+        var weightPressure: Double = 1.0
+        var emaAlpha:       Double = 0.5  // suavização (Passo 7)
     }
 
     /// Percorre o buffer e devolve o score por tick + o tick de maior score.
@@ -52,38 +68,54 @@ extension SensorWindow {
             return WindowScore(bestTimestampMs: nil, bestScore: 0, ticks: [])
         }
 
-        // ── Passo 1+2: Δ bruto por tick gated ────────────────
-        // Para cada leitura GPS válida (gate + 5 s de história), guarda |Δ| de cada sensor.
-        struct RawTick { let t: Int64; let dAcc: Double; let dSpeed: Double; let dMag: Double }
-        var raws: [Int64: RawTick] = [:]   // só ticks gated+calculáveis
+        // ── Passo 1: Δ bruto de cada sensor por leitura ──────
+        // Calculado para TODAS as leituras GPS (haja ou não gate), para se poder
+        // inspecionar a variação em cada tick. O gate (Passo 2) só decide se a
+        // leitura pontua. Magnetómetro e pressão são opcionais (0 se ausentes).
+        struct RawTick {
+            let t: Int64
+            let gated: Bool
+            let dAcc: Double; let dSpeed: Double; let dMag: Double; let dPress: Double
+        }
+        var raws: [RawTick] = []
 
         for g in gpsReadings {
             let t = g.timestampMs
             let target = t - params.rateMs
 
-            // Gate (Passo 2): velocidade mínima + sinal GPS.
-            guard g.hasSignal, g.speedMps > params.minSpeedMps else { continue }
-
-            // Âncoras a ~5 s atrás. Se a âncora coincidir com agora, não há história suficiente.
+            // Âncoras GPS a ~5 s atrás (obrigatórias — sem elas não há variação a medir).
             guard let accPast   = Self.valueAt(gpsReadings, target, { $0.timestampMs }, { Double($0.accuracyMeters) }),
-                  let speedPast = Self.valueAt(gpsReadings, target, { $0.timestampMs }, { $0.speedMps }),
-                  let magNow    = Self.valueAt(magneticReadings, t,      { $0.timestampMs }, { $0.magnitude }),
-                  let magPast   = Self.valueAt(magneticReadings, target, { $0.timestampMs }, { $0.magnitude })
+                  let speedPast = Self.valueAt(gpsReadings, target, { $0.timestampMs }, { $0.speedMps })
             else { continue }
 
-            // Variações brutas, sempre positivas (Passo 1).
-            raws[t] = RawTick(
+            // Magnetómetro e pressão: opcionais — 0 se não houver leituras.
+            let magNow    = Self.valueAt(magneticReadings, t,      { $0.timestampMs }, { $0.magnitude })
+            let magPast   = Self.valueAt(magneticReadings, target, { $0.timestampMs }, { $0.magnitude })
+            let dMag: Double = (magNow != nil && magPast != nil) ? abs(magNow! - magPast!) : 0
+
+            let pressNow  = Self.valueAt(pressureReadings, t,      { $0.timestampMs }, { Double($0.hPa) })
+            let pressPast = Self.valueAt(pressureReadings, target, { $0.timestampMs }, { Double($0.hPa) })
+            let dPress: Double = (pressNow != nil && pressPast != nil) ? abs(pressNow! - pressPast!) : 0
+
+            // Gate (Passo 2): velocidade mínima + sinal GPS.
+            let gated = g.hasSignal && g.speedMps > params.minSpeedMps
+
+            raws.append(RawTick(
                 t:      t,
+                gated:  gated,
                 dAcc:   abs(Double(g.accuracyMeters) - accPast),
                 dSpeed: abs(g.speedMps - speedPast),
-                dMag:   abs(magNow - magPast)
-            )
+                dMag:   dMag,
+                dPress: dPress
+            ))
         }
 
-        // ── Passo 3: σ de cada sensor sobre os ticks gated ───
-        let sigAcc   = Self.std(raws.values.map { $0.dAcc })
-        let sigSpeed = Self.std(raws.values.map { $0.dSpeed })
-        let sigMag   = Self.std(raws.values.map { $0.dMag })
+        // ── Passo 3: σ de cada sensor, medido só sobre os ticks gated ──
+        let gatedRaws = raws.filter { $0.gated }
+        let sigAcc   = Self.std(gatedRaws.map { $0.dAcc })
+        let sigSpeed = Self.std(gatedRaws.map { $0.dSpeed })
+        let sigMag   = Self.std(gatedRaws.map { $0.dMag })
+        let sigPress = Self.std(gatedRaws.map { $0.dPress })
 
         // Passos 4+5: normaliza (σ), deadband, tecto e peso.
         func contrib(_ delta: Double, _ sigma: Double, _ weight: Double) -> Double {
@@ -93,33 +125,33 @@ extension SensorWindow {
             return weight * min(n, params.cap)
         }
 
-        // ── Passos 6+7: soma + EMA, percorrendo a grelha em ordem ──
+        // ── Passos 6+7: pontuação por sensor + soma + EMA ────
         var ema = 0.0
         var bestTs: Int64? = nil
         var bestScore = 0.0
         var ticks: [ScoredTick] = []
 
-        for g in gpsReadings {
-            let t = g.timestampMs
-            let raw: Double
-            let gated: Bool
-            if let r = raws[t] {
-                raw = contrib(r.dAcc,   sigAcc,   params.weightAcc)
-                    + contrib(r.dSpeed, sigSpeed, params.weightSpeed)
-                    + contrib(r.dMag,   sigMag,   params.weightMag)
-                gated = true
-            } else {
-                raw = 0          // gate falhou ou sem história → score 0 (Passo 2)
-                gated = false
-            }
+        for r in raws {   // já em ordem cronológica
+            // Contributo por sensor — 0 se a leitura não passou o gate.
+            let sAcc   = r.gated ? contrib(r.dAcc,   sigAcc,   params.weightAcc)      : 0
+            let sSpeed = r.gated ? contrib(r.dSpeed, sigSpeed, params.weightSpeed)    : 0
+            let sMag   = r.gated ? contrib(r.dMag,   sigMag,   params.weightMag)      : 0
+            let sPress = r.gated ? contrib(r.dPress, sigPress, params.weightPressure) : 0
+            let rawScore = sAcc + sSpeed + sMag + sPress
 
-            ema = params.emaAlpha * raw + (1 - params.emaAlpha) * ema
-            ticks.append(ScoredTick(timestampMs: t, score: ema, gated: gated))
+            ema = params.emaAlpha * rawScore + (1 - params.emaAlpha) * ema
+
+            ticks.append(ScoredTick(
+                timestampMs: r.t, gated: r.gated,
+                dAcc: r.dAcc, dSpeed: r.dSpeed, dMag: r.dMag, dPress: r.dPress,
+                sAcc: sAcc, sSpeed: sSpeed, sMag: sMag, sPress: sPress,
+                rawScore: rawScore, score: ema
+            ))
 
             // O início da janela tem de ser um tick de rua válida.
-            if gated, ema > bestScore {
+            if r.gated, ema > bestScore {
                 bestScore = ema
-                bestTs = t
+                bestTs = r.t
             }
         }
 
