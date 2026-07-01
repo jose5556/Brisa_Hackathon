@@ -26,12 +26,18 @@ final class SensorViewModel: ObservableObject {
     @Published var isManualCapture = false
     @Published var manualElapsedS = 0
 
+    // ── Recolha de dados (tela DATA) ──────────────────
+    @Published var isDataRecording = false
+    @Published var dataTicks: [SensorTick] = []
+
     private let collector = SensorCollector()
     private let repository = SensorRepository()
     private var isCollecting = false
     private var liveTimer: Timer? = nil
     private var manualStartMs: Int64 = 0
     private var manualTimer: Timer? = nil
+    private var dataStartMs: Int64 = 0
+    private var dataTimer: Timer? = nil
 
     // ── Ciclo de vida ─────────────────────────────────
     // Chama no .onAppear da View (equivalente a onStart)
@@ -87,12 +93,14 @@ final class SensorViewModel: ObservableObject {
         isManualCapture = true
         uploadResult = .idle
 
-        manualTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+        let manualTick = Timer(timeInterval: 1.0, repeats: true) { [weak self] _ in
             guard let self else { return }
             Task { @MainActor in
                 self.manualElapsedS = Int((self.collector.currentTimeMs() - self.manualStartMs) / 1000)
             }
         }
+        RunLoop.main.add(manualTick, forMode: .common)
+        manualTimer = manualTick
     }
 
     /// Cancela a captura manual sem analisar.
@@ -120,6 +128,59 @@ final class SensorViewModel: ObservableObject {
 
     func resetResult() {
         uploadResult = .idle
+    }
+
+    // ── Recolha de dados (tela DATA) ──────────────────
+
+    func startDataRecording() {
+        guard !isDataRecording else { return }
+        dataTicks = []
+        dataStartMs = collector.currentTimeMs()
+        isDataRecording = true
+
+        let timer = Timer(timeInterval: 1.0, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            Task { @MainActor in
+                let window = self.collector.getCurrentWindow()
+                let elapsed = Int((self.collector.currentTimeMs() - self.dataStartMs) / 1000)
+                let ts = Date().iso8601
+                let pressureHpa  = window.pressureReadings.last.map { Double($0.hPa) } ?? 0
+                let gpsAccuracyM = window.gpsReadings.last.map { Double($0.accuracyMeters) } ?? 0
+                let gpsSpeedMps  = window.gpsReadings.last?.speedMps ?? 0
+                let magUt        = window.magneticReadings.last?.magnitude ?? 0
+                self.dataTicks.append(SensorTick(
+                    elapsedS:     elapsed,
+                    timestamp:    ts,
+                    pressureHpa:  pressureHpa,
+                    gpsAccuracyM: gpsAccuracyM,
+                    gpsSpeedMps:  gpsSpeedMps,
+                    magUt:        magUt
+                ))
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        dataTimer = timer
+    }
+
+    func stopDataRecording() {
+        dataTimer?.invalidate(); dataTimer = nil
+        isDataRecording = false
+    }
+
+    func exportDataCSV() -> URL? {
+        guard !dataTicks.isEmpty else { return nil }
+        var csv = "elapsed_s,timestamp,pressure_hpa,gps_accuracy_m,gps_speed_mps,mag_ut\n"
+        for tick in dataTicks {
+            csv += "\(tick.elapsedS),\(tick.timestamp),"
+            csv += "\(String(format: "%.2f", tick.pressureHpa)),"
+            csv += "\(String(format: "%.2f", tick.gpsAccuracyM)),"
+            csv += "\(String(format: "%.2f", tick.gpsSpeedMps)),"
+            csv += "\(String(format: "%.2f", tick.magUt))\n"
+        }
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("brisa_sensor_data_\(Int(Date().timeIntervalSince1970)).csv")
+        try? csv.write(to: url, atomically: true, encoding: .utf8)
+        return url
     }
 
     // ── Pipeline comum: payload + envio ───────────────
@@ -158,7 +219,7 @@ final class SensorViewModel: ObservableObject {
     // Inicia um timer de 1 Hz que publica o estado atual do buffer.
     // Deve ser chamado no .onAppear da SensorLogsView.
     func startLiveUpdates() {
-        liveTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+        let liveTick = Timer(timeInterval: 1.0, repeats: true) { [weak self] _ in
             guard let self else { return }
             Task { @MainActor in
                 let window = self.collector.getCurrentWindow()
@@ -177,6 +238,8 @@ final class SensorViewModel: ObservableObject {
                       "mag=\(fmt(deltas.magneticUt, "µT"))")
             }
         }
+        RunLoop.main.add(liveTick, forMode: .common)
+        liveTimer = liveTick
     }
 
     // Deve ser chamado no .onDisappear da SensorLogsView.
