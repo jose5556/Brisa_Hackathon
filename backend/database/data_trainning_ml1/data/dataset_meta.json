@@ -1,0 +1,28 @@
+{
+  "n_total": 5000,
+  "feature_columns": [
+    "pressure_hpa",
+    "pressure_delta_hpa",
+    "pressure_variance",
+    "altitude_change_m",
+    "pressure_relative_to_surface_hpa",
+    "magnetic_variance_total",
+    "magnetic_field_mean",
+    "magnetic_field_delta",
+    "gnss_accuracy_m",
+    "gnss_accuracy_delta",
+    "gnss_lost_ratio"
+  ],
+  "label_column": "label",
+  "classes": [
+    "street_level",
+    "underground",
+    "above"
+  ],
+  "cities": [
+    "OPO",
+    "LIS"
+  ],
+  "label_noise_rate": 0.03,
+  "seed": 42
+}

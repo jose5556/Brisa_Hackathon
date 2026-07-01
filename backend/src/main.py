@@ -5,9 +5,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from src.database import get_db
+from src.database_session_connection import get_db
 from src.parking_service import analyze_and_store_parking_event
 from src.vertical_ml_predict import predict_vertical_context
+
+import subprocess
 
 app = FastAPI(
     title="Vertical Context Detector API",
@@ -31,7 +33,29 @@ def root():
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    try:
+        result = subprocess.run(
+            ["tailscale", "ip", "-4"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+
+        return {
+            "tailscale_ip": result.stdout.strip(),
+        }
+
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=500,
+            detail="Tailscale command not found on this server",
+        )
+
+    except subprocess.CalledProcessError as error:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get Tailscale IP: {error.stderr.strip()}",
+        )
 
 
 @app.get("/db/health")
