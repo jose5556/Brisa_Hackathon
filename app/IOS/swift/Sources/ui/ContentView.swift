@@ -19,6 +19,10 @@ struct ContentView: View {
 
     @StateObject private var viewModel = SensorViewModel()
 
+    // Ciclo de vida real da app — usado para parar/retomar a coleta.
+    // (Substitui o .onDisappear, que parava indevidamente ao abrir a aba DEV.)
+    @Environment(\.scenePhase) private var scenePhase
+
     // Animação da barra de progresso (equivalente ao progressAnim do Kotlin)
     @State private var progressValue: Double = 0
     // Controla navegação para a tela de logs DEV
@@ -150,7 +154,17 @@ struct ContentView: View {
         }
         .background(Color.vvBackground.ignoresSafeArea())
         .onAppear  { viewModel.startCollecting() }
-        .onDisappear { viewModel.stopCollecting() }
+        // NÃO paramos a coleta no .onDisappear: ao abrir a aba DEV a ContentView
+        // desaparece e pararia o coletor, criando gaps (t-10 → t-123). O coletor
+        // é contínuo e deve continuar a recolher enquanto a app estiver activa.
+        // A paragem real acontece quando a app deixa de estar activa (scenePhase).
+        .onChange(of: scenePhase) { phase in
+            switch phase {
+            case .active:                viewModel.startCollecting()
+            case .background, .inactive: viewModel.stopCollecting()
+            @unknown default:            break
+            }
+        }
         .onReceive(progressTimer) { _ in
             guard isLoading else { progressValue = 0; return }
             progressValue = min(progressValue + (0.1 / 30.0), 1.0)
