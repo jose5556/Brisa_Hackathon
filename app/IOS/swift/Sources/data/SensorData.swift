@@ -33,19 +33,19 @@ struct SensorPayload: Codable {
         case latitude
         case longitude
 
-        case gpsAccuracyMean            = "gps_accuracy_mean"
-        case gpsAccuracyDelta           = "gps_accuracy_delta"
-        case gpsLostRatio               = "gps_lost_ratio"
+        case gpsAccuracyMean            = "gnss_accuracy_mean"
+        case gpsAccuracyDelta           = "gnss_accuracy_delta"
+        case gpsLostRatio               = "gnss_lost_ratio"
 
         case pressureHpa                = "pressure_hpa"
-        case pressureDeltaHpa           = "pressure_delta_hpa"
+        case pressureDeltaHpa           = "pressure_delta"
         case pressureVariance           = "pressure_variance"
-        case altitudeChangeM            = "altitude_change_m"
+        case altitudeChangeM            = "altitude_delta"
         case cityBaselinePressure       = "city_baseline_pressure"
 
         case magneticFieldMean          = "magnetic_field_mean"
         case magneticFieldDelta         = "magnetic_field_delta"
-        case magneticFieldVariance      = "magnetic_field_variance"
+        case magneticFieldVariance      = "magnetic_variance_total"
 
         case windowStartAt              = "window_start_at"
         case windowEndAt                = "window_end_at"

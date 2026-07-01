@@ -226,7 +226,7 @@ final class SensorCollector: NSObject {
             return
         }
 
-        motionManager.deviceMotionUpdateInterval = 0.1   // 10 Hz
+        motionManager.deviceMotionUpdateInterval = 1.0   // 1 Hz — poupa bateria/CPU
 
         motionManager.startDeviceMotionUpdates(
             using: .xMagneticNorthZVertical,
