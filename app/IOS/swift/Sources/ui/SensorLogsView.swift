@@ -102,7 +102,6 @@ struct SensorLogsView: View {
                                 DataRow(key: "pressure_delta_hpa",     value: String(format: "%.2f hPa", p.pressureDeltaHpa))
                                 DataRow(key: "pressure_variance",      value: String(format: "%.4f", p.pressureVariance))
                                 DataRow(key: "altitude_change_m",      value: String(format: "%.2f m", p.altitudeChangeM))
-                                DataRow(key: "city_baseline_pressure", value: String(format: "%.2f hPa", p.cityBaselinePressure))
                             }
 
                             LogSubSection(title: "MAGNETOMETER", badge: "3 features") {
@@ -130,7 +129,6 @@ struct SensorLogsView: View {
                                     ("pressure_delta_hpa",     String(format: "%.2f", p.pressureDeltaHpa)),
                                     ("pressure_variance",      String(format: "%.4f", p.pressureVariance)),
                                     ("altitude_change_m",      String(format: "%.2f", p.altitudeChangeM)),
-                                    ("city_baseline_pressure", String(format: "%.2f", p.cityBaselinePressure)),
                                     ("magnetic_field_mean",    String(format: "%.2f", p.magneticFieldMean)),
                                     ("magnetic_field_delta",   String(format: "%.2f", p.magneticFieldDelta)),
                                     ("magnetic_field_variance",String(format: "%.4f", p.magneticFieldVariance)),
