@@ -18,6 +18,8 @@ def predict_vertical_context(payload: dict) -> dict:
     model = bundle["model"]
     features = bundle["features"]
 
+    le = bundle["label_encoder"]
+
     mapping = {
         "pressure_hpa": payload.get("pressure_hpa"),
         "pressure_delta_hpa": payload.get("pressure_delta"),  # curl: pressure_delta
@@ -28,37 +30,32 @@ def predict_vertical_context(payload: dict) -> dict:
         "magnetic_field_delta": payload.get("magnetic_field_delta"),
         "gnss_accuracy_m": payload.get("gnss_accuracy_m") or payload.get("gnss_accuracy_mean"),
         "gnss_accuracy_delta": payload.get("gnss_accuracy_delta"),
-        "gnss_lost_ratio": payload.get("gnss_lost_ratio") or payload.get("gps_lost_ratio"), # curl: gnss_lost_ratio
+        "gnss_lost_ratio": payload.get("gnss_lost_ratio")
     }
 
     row = {}
 
     for feature in features:
-        row[feature] = payload.get(feature, np.nan)
+        row[feature] = mapping.get(feature, np.nan)
 
     X = pd.DataFrame([row], columns=features)
 
     X = X.astype(float)
 
     probabilities = model.predict_proba(X)[0]
-    classes = model.classes_
+    decoded_classes = le.inverse_transform(model.classes_)
 
-    probabilities_by_class = dict(zip(classes, probabilities))
+    probabilities_by_class = dict(zip(decoded_classes, probabilities))
 
     underground_score = float(probabilities_by_class.get("underground", 0.0))
     above_score = float(probabilities_by_class.get("above", 0.0))
 
-    non_street_confidence = underground_score + above_score
-    non_street_confidence = float(np.round(non_street_confidence, 2))
+    non_street_confidence = float(np.round(underground_score + above_score, 2))
 
-    le = bundle["label_encoder"]
-
-    raw_classification = max(
+    classification = max(
         probabilities_by_class,
         key=probabilities_by_class.get,
     )
-
-    classification = str(le.inverse_transform([raw_classification])[0])
 
     return {
         "non_street_confidence": non_street_confidence,
