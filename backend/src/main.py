@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 
 from src.database_session_connection import get_db
 from src.parking_service import analyze_and_store_parking_event
-from src.vertical_ml_predict import predict_vertical_context
 
 import subprocess
 
@@ -81,9 +80,9 @@ def db_schema_info(db: Session = Depends(get_db)):
 
 
 @app.post("/predict")
-def predict(payload: dict[str, Any]):
+def predict(payload: dict[str, Any], db: Session = Depends(get_db)):
     try:
-        return predict_vertical_context(payload)
+        return analyze_and_store_parking_event(db, payload)
 
     except FileNotFoundError as error:
         raise HTTPException(status_code=500, detail=str(error))
