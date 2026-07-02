@@ -142,6 +142,39 @@ def latest_parking_events(
         "events": [dict(row) for row in rows],
     }
 
+@app.get("/sensor-payloads/latest")
+def latest_sensor_payloads(
+    limit: int = 10,
+    db: Session = Depends(get_db),
+):
+    rows = db.execute(
+        text(
+            """
+            SELECT
+                sp.id AS payload_id,
+                sp.session_id,
+                ps.user_id,
+                ps.city,
+                sp.window_start_at,
+                sp.window_end_at,
+                sp.gnss_accuracy_m,
+                sp.gnss_lost_ratio,
+                sp.raw_payload
+            FROM sensor_payloads sp
+            JOIN parking_sessions ps ON ps.id = sp.session_id
+            ORDER BY sp.received_at DESC
+            LIMIT :limit
+            """
+        ),
+        {"limit": limit},
+    ).mappings().all()
+
+    return {
+        "count": len(rows),
+        "payloads": [dict(row) for row in rows],
+    }
+
+
 @app.get("/parking-events/{session_id}")
 def get_parking_event(
     session_id: str,

@@ -102,6 +102,24 @@ def test_analyze_parking_event_creates_event():
     assert "non_street_confidence" in data
 
 
+def test_latest_sensor_payloads_returns_list():
+    response = client.get("/sensor-payloads/latest?limit=3")
+
+    assert response.status_code == 200
+
+    data = response.json()
+    assert "count" in data
+    assert "payloads" in data
+    assert isinstance(data["payloads"], list)
+
+    if data["payloads"]:
+        payload = data["payloads"][0]
+        assert "payload_id" in payload
+        assert "session_id" in payload
+        assert "user_id" in payload
+        assert "raw_payload" in payload
+
+
 def test_latest_parking_events_returns_list():
     response = client.get("/parking-events/latest")
 
