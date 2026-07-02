@@ -7,6 +7,8 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from src.vertical_ml_predict import predict_vertical_context
+from src.spatial_service import get_spatial_context
+from src.spatial_ml_predict import predict_final_decision
 
 DEFAULT_CITY = "OPO"
 DEFAULT_PLATFORM = "ios"
@@ -230,14 +232,16 @@ def create_inference_log(
     db: Session,
     session_id: str,
     payload_id: str,
-    prediction: dict[str, Any],
+    ml1_prediction: dict[str, Any],
+    spatial_data: dict[str, Any],
+    ml2_prediction: dict[str, Any]
 ) -> str:
-    non_street_confidence = prediction["non_street_confidence"]
 
-    if non_street_confidence <= 0.50:
-        final_decision = "Charge"
-    else:
-        final_decision = "Don't charge"
+    ml1_conf = float(ml1_prediction["non_street_confidence"])
+    ml1_class = str(ml1_prediction["classification"])
+
+    final_decision = str(ml2_prediction["final_decision"])
+    final_confidence = float(ml2_prediction["ml2_charge_confidence"])
 
     inference_id = db.execute(
         text(
@@ -247,7 +251,14 @@ def create_inference_log(
                 payload_id,
 
                 ml1_non_street_confidence,
-                ml1_decision,
+                ml1_classification,
+
+                spatial_in_paid_zone,
+                spatial_zone_id,
+                spatial_dist_to_road_m,
+
+                ml2_charge_confidence,
+                ml2_decision,
 
                 final_decision,
                 final_confidence
@@ -257,23 +268,37 @@ def create_inference_log(
                 :payload_id,
 
                 :ml1_non_street_confidence,
-                :ml1_decision,
+                :ml1_classification,
 
-                :final_decision,
+                :spatial_in_paid_zone,
+                CAST(:spatial_zone_id AS UUID),
+                :spatial_dist_to_road_m,
+
+                :ml2_charge_confidence,
+                CAST(:ml2_decision AS model_decision),
+
+                CAST(:final_decision AS model_decision),
                 :final_confidence
             )
-            RETURNING id
+            RETURNING id::text
             """
         ),
         {
             "session_id": session_id,
             "payload_id": payload_id,
 
-            "ml1_non_street_confidence": non_street_confidence,
-            "ml1_decision": final_decision,
+            "ml1_non_street_confidence": ml1_conf,
+            "ml1_classification": ml1_class,
+
+            "spatial_in_paid_zone": spatial_data["in_paid_zone"],
+            "spatial_zone_id": spatial_data["zone_id"],
+            "spatial_dist_to_road_m": spatial_data["distance_to_zone_m"],
+
+            "ml2_charge_confidence": final_confidence,
+            "ml2_decision": final_decision,
 
             "final_decision": final_decision,
-            "final_confidence": non_street_confidence,
+            "final_confidence": final_confidence,
         },
     ).scalar_one()
 
@@ -289,13 +314,28 @@ def analyze_and_store_parking_event(
         session_id = create_parking_session(db, payload, user_id)
         payload_id = create_sensor_payload(db, session_id, payload)
 
-        prediction = predict_vertical_context(payload)
+        ml1_prediction = predict_vertical_context(payload)
+        ml1_conf = ml1_prediction["non_street_confidence"]
+
+        spatial = get_spatial_context(
+            db=db, 
+            latitude=payload.get("latitude"), 
+            longitude=payload.get("longitude")
+        )
+
+        ml2_prediction = predict_final_decision(
+            ml1_confidence=ml1_conf,
+            gnss_accuracy_m=payload.get("gnss_accuracy_m", 10.0),
+            distance_to_zone_m=spatial["distance_to_zone_m"]
+        )
 
         inference_id = create_inference_log(
             db=db,
             session_id=session_id,
             payload_id=payload_id,
-            prediction=prediction,
+            ml1_prediction=ml1_prediction,
+            spatial_data=spatial,
+            ml2_prediction=ml2_prediction
         )
 
         db.commit()
@@ -304,8 +344,11 @@ def analyze_and_store_parking_event(
             "session_id": session_id,
             "payload_id": payload_id,
             "inference_id": inference_id,
-            "non_street_confidence": prediction["non_street_confidence"],
-            "classification": prediction["classification"],
+            "ml1_classification": ml1_prediction["classification"],
+            "ml1_non_street_confidence": ml1_prediction["non_street_confidence"],
+            "distance_to_zone_m": spatial["distance_to_zone_m"],
+            "final_decision": ml2_prediction["final_decision"],
+            "confidence_to_charge": ml2_prediction["ml2_charge_confidence"]
         }
 
     except Exception:

@@ -62,8 +62,11 @@ install: venv
 	$(PIP_VENV) install --upgrade pip
 	$(PIP_VENV) install -r requirements.txt
 
-train: 
+train-vertical: 
 	$(PYTHON_VENV) scripts/train_vertical_lgbm.py
+
+train-spatial: 
+	$(PYTHON_VENV) scripts/train_spatial_lgbm.py
 
 cert:
 	@mkdir -p $(CERT_DIR)
@@ -118,6 +121,9 @@ db-reset:
 
 db-shell:
 	$(DOCKER_COMPOSE) exec db psql -U parking_user -d parking_db
+
+db-load-maps:
+	$(PYTHON_VENV) database/data_ingestion/geojson_loader.py
 
 tests:
 	$(PYTHON_VENV) -m pytest ../tests
