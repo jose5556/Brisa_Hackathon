@@ -59,7 +59,7 @@ struct ContentView: View {
                     HStack(spacing: 10) {
                         SensorChip(name: "GPS",   label: "Localização")
                         SensorChip(name: "Bar.",  label: "Pressão")
-                        SensorChip(name: "Acel.", label: "Movimento")
+                    //    SensorChip(name: "Acel.", label: "Movimento") 
                         SensorChip(name: "Mag.",  label: "Campo")
                     }
 
@@ -126,12 +126,12 @@ struct ContentView: View {
                                 ProgressView()
                                     .progressViewStyle(CircularProgressViewStyle(tint: .white))
                                     .scaleEffect(0.85)
-                                Text("Analisando… (score)")
+                                Text("Analisando…")
                                     .font(.system(size: 15, weight: .bold))
                                     .foregroundColor(.white)
                                     .kerning(0.5)
                             } else {
-                                Text("▶  ANALISAR (SCORE)")
+                                Text("▶  ANALISAR")
                                     .font(.system(size: 15, weight: .bold))
                                     .foregroundColor(.white)
                                     .kerning(1)
