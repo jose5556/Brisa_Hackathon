@@ -80,7 +80,7 @@ POST /predict
 Example for street level:
 
 ```bash
-curl -X POST "http://localhost:8000/parking-events/analyze" \
+curl -X POST "http://100.121.113.91:8000/predict" \
      -H "Content-Type: application/json" \
      -d '{
        "latitude": 41.1579,
@@ -105,7 +105,7 @@ curl -X POST "http://localhost:8000/parking-events/analyze" \
 Example for underground:
 
 ```bash
-curl -X POST "http://localhost:8000/parking-events/analyze" \
+curl -X POST "http://100.121.113.91:8000/predict" \
      -H "Content-Type: application/json" \
      -d '{
        "latitude": 41.1579,
