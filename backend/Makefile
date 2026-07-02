@@ -122,6 +122,9 @@ db-reset:
 db-shell:
 	$(DOCKER_COMPOSE) exec db psql -U parking_user -d parking_db
 
+db-load-maps:
+	$(PYTHON_VENV) database/data_ingestion/geojson_loader.py
+
 tests:
 	$(PYTHON_VENV) -m pytest ../tests
 
