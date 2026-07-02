@@ -165,7 +165,7 @@ CREATE TABLE inference_logs (
     ml1_underground_prob         NUMERIC(5,4),  -- P(underground)
     ml1_above_prob               NUMERIC(5,4),  -- P(above_ground)
     ml1_non_street_confidence    NUMERIC(5,4),  -- composite score "not a street"
-    ml1_decision                 model_decision,
+    ml1_classification           TEXT,          -- 'street_level', 'underground' , 'above_ground'
 
     -- Spatial Context Service
     spatial_in_paid_zone        BOOLEAN,
