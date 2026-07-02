@@ -1,14 +1,30 @@
 import Foundation
 
 // ── Configuration ─────────────────────────────────────
-// Emulator / simulator:
-// private let baseURL = "http://127.0.0.1:8000/"
-//
-// Physical iPhone on same Wi-Fi as your PC:
-// private let baseURL = "http://172.20.10.8:8000/"
-//
-// Simulator (API a correr em localhost no Mac):
-private let baseURL = "http://100.121.113.91:8000/"
+// O IP do servidor é editável em runtime (ecrã de configuração) e
+// guardado em UserDefaults. Exemplos de valores válidos:
+//   127.0.0.1        → Emulator / simulator
+//   172.20.10.8      → iPhone físico na mesma Wi-Fi do PC
+//   100.121.113.91   → default
+enum ServerConfig {
+    private static let ipKey = "server_ip"
+
+    /// IP usado por defeito quando nada foi configurado.
+    static let defaultIP = "100.121.113.91"
+    static let port = 8000
+
+    /// IP do servidor persistido em UserDefaults.
+    static var ip: String {
+        get { UserDefaults.standard.string(forKey: ipKey) ?? defaultIP }
+        set { UserDefaults.standard.set(newValue, forKey: ipKey) }
+    }
+
+    /// URL base construído a partir do IP configurado (ex: "http://127.0.0.1:8000/").
+    static var baseURL: String { "http://\(ip):\(port)/" }
+
+    /// URL base para um IP arbitrário (usado para testar a ligação sem gravar).
+    static func baseURL(for ip: String) -> String { "http://\(ip):\(port)/" }
+}
 
 // ── Errors ────────────────────────────────────────────
 enum SensorApiError: Error, LocalizedError {
@@ -61,10 +77,14 @@ final class SensorApiClient {
 
     // ── checkDbHealth ──────────────────────────────────
     // Teste rápido: GET /db/health e imprime o retorno no console.
-    func checkDbHealth() async {
-        guard let url = URL(string: baseURL + "db/health") else {
+    // Devolve `true` se o endpoint respondeu com um código 2xx.
+    // `ipOverride` permite testar um IP sem o gravar em ServerConfig.
+    @discardableResult
+    func checkDbHealth(ipOverride: String? = nil) async -> Bool {
+        let base = ipOverride.map(ServerConfig.baseURL(for:)) ?? ServerConfig.baseURL
+        guard let url = URL(string: base + "db/health") else {
             print("[DB Health] URL inválido")
-            return
+            return false
         }
 
         do {
@@ -72,8 +92,10 @@ final class SensorApiClient {
             let code = (response as? HTTPURLResponse)?.statusCode ?? -1
             let body = String(data: data, encoding: .utf8) ?? "<sem corpo>"
             print("[DB Health] HTTP \(code) → \(body)")
+            return (200...299).contains(code)
         } catch {
             print("[DB Health] Erro: \(error.localizedDescription)")
+            return false
         }
     }
 
@@ -82,7 +104,7 @@ final class SensorApiClient {
         payload: SensorPayload
     ) async throws -> PredictionResponse {
 
-        guard let url = URL(string: baseURL + "predict") else {
+        guard let url = URL(string: ServerConfig.baseURL + "predict") else {
             throw SensorApiError.invalidURL
         }
 

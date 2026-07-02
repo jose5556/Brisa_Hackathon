@@ -19,7 +19,6 @@ extension Color {
 struct ContentView: View {
 
     @StateObject private var viewModel = SensorViewModel()
-    @Environment(\.scenePhase) private var scenePhase
 
     // Ciclo de vida real da app — usado para parar/retomar a coleta.
     // (Substitui o .onDisappear, que parava indevidamente ao abrir a aba DEV.)
@@ -30,6 +29,8 @@ struct ContentView: View {
     // Controla navegação para a tela de logs DEV e tela DATA
     @State private var showLogs = false
     @State private var showData = false
+    // Controla a apresentação do ecrã de configuração do servidor
+    @State private var showSettings = false
     private let progressTimer = Timer.publish(every: 0.1, on: .main, in: .common).autoconnect()
 
     var isLoading: Bool { viewModel.uploadResult == .loading }
@@ -172,6 +173,9 @@ struct ContentView: View {
         .navigationDestination(isPresented: $showData) {
             DataCollectionView(viewModel: viewModel)
         }
+        .sheet(isPresented: $showSettings) {
+            ServerSettingsView()
+        }
         } // NavigationStack
     }
 
@@ -209,6 +213,18 @@ struct ContentView: View {
             // Botões DEV e DATA no canto superior direito
             VStack {
                 HStack {
+                    // Botão de configuração do servidor (canto superior esquerdo)
+                    Button(action: { showSettings = true }) {
+                        Image(systemName: "wifi")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.white)
+                            .frame(width: 32, height: 32)
+                            .background(Color.white.opacity(0.15))
+                            .cornerRadius(8)
+                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.3), lineWidth: 1))
+                    }
+                    .padding(.leading, 16)
+
                     Spacer()
                     HStack(spacing: 6) {
                         Button("DATA") { showData = true }

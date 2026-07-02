@@ -261,8 +261,7 @@ struct SensorLogsView: View {
 
     // Extrai o host do baseURL para mostrar no PAYLOAD SENT
     private var baseHost: String {
-        let url = "100.103.161.134:8000"
-        return url
+        "\(ServerConfig.ip):\(ServerConfig.port)"
     }
 }
 
