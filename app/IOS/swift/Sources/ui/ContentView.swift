@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+import UIKit
 
 // ── Cores ViaVerde ────────────────────────────────────
 // Equivalente às val VV* do Kotlin
@@ -18,14 +19,23 @@ extension Color {
 struct ContentView: View {
 
     @StateObject private var viewModel = SensorViewModel()
+    @Environment(\.scenePhase) private var scenePhase
+
+    // Ciclo de vida real da app — usado para parar/retomar a coleta.
+    // (Substitui o .onDisappear, que parava indevidamente ao abrir a aba DEV.)
+    @Environment(\.scenePhase) private var scenePhase
 
     // Animação da barra de progresso (equivalente ao progressAnim do Kotlin)
     @State private var progressValue: Double = 0
+    // Controla navegação para a tela de logs DEV e tela DATA
+    @State private var showLogs = false
+    @State private var showData = false
     private let progressTimer = Timer.publish(every: 0.1, on: .main, in: .common).autoconnect()
 
     var isLoading: Bool { viewModel.uploadResult == .loading }
 
     var body: some View {
+        NavigationStack {
         VStack(spacing: 0) {
 
             // ── Header verde ──────────────────────────
@@ -68,10 +78,43 @@ struct ContentView: View {
                 .padding(.vertical, 20)
             }
 
-            // ── Botão principal ───────────────────────
+            // ── Botão ───────────────────────
             VStack(spacing: 0) {
                 Divider()
                 VStack(spacing: 8) {
+
+                    // ── Janela dinâmica: Iniciar / Analisar ───
+                    HStack(spacing: 8) {
+                        // Iniciar (ou parar contagem)
+                        Button(action: {
+                            if viewModel.isManualCapture { viewModel.cancelManualCapture() }
+                            else { viewModel.startManualCapture() }
+                        }) {
+                            Text(viewModel.isManualCapture
+                                 ? "■  \(viewModel.manualElapsedS)s"
+                                 : "●  INICIAR")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundColor(viewModel.isManualCapture ? .white : .vvGreenDark)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 40)
+                                .background(viewModel.isManualCapture ? Color.vvGreenDark : Color.vvGreenLight)
+                                .cornerRadius(10)
+                        }
+                        .disabled(isLoading)
+
+                        // Analisar ambiente (janela dinâmica)
+                        Button(action: { viewModel.analyzeManualWindow() }) {
+                            Text("ANALISAR AMBIENTE")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 40)
+                                .background(viewModel.isManualCapture ? Color.vvGreen : Color.vvGreen.opacity(0.4))
+                                .cornerRadius(10)
+                        }
+                        .disabled(!viewModel.isManualCapture || isLoading)
+                    }
+
                     Button(action: {
                         viewModel.testDbConnection()   // teste rápido: imprime GET /db/health no console
                         if isLoading { viewModel.resetResult() }
@@ -82,12 +125,12 @@ struct ContentView: View {
                                 ProgressView()
                                     .progressViewStyle(CircularProgressViewStyle(tint: .white))
                                     .scaleEffect(0.85)
-                                Text("Analisando… (30s)")
+                                Text("Analisando… (score)")
                                     .font(.system(size: 15, weight: .bold))
                                     .foregroundColor(.white)
                                     .kerning(0.5)
                             } else {
-                                Text("▶  ANALISAR AMBIENTE")
+                                Text("▶  ANALISAR (SCORE)")
                                     .font(.system(size: 15, weight: .bold))
                                     .foregroundColor(.white)
                                     .kerning(1)
@@ -113,13 +156,23 @@ struct ContentView: View {
             }
         }
         .background(Color.vvBackground.ignoresSafeArea())
-        .onAppear  { viewModel.startCollecting() }
-        .onDisappear { viewModel.stopCollecting() }
+        .onAppear { viewModel.startCollecting() }
+        .onChange(of: scenePhase) { phase in
+            if phase == .active  { viewModel.startCollecting() }
+            if phase == .background { viewModel.stopCollecting() }
+        }
         .onReceive(progressTimer) { _ in
             guard isLoading else { progressValue = 0; return }
             progressValue = min(progressValue + (0.1 / 30.0), 1.0)
             if progressValue >= 1.0 { progressValue = 0 }
         }
+        .navigationDestination(isPresented: $showLogs) {
+            SensorLogsView(viewModel: viewModel)
+        }
+        .navigationDestination(isPresented: $showData) {
+            DataCollectionView(viewModel: viewModel)
+        }
+        } // NavigationStack
     }
 
     // ── Header ────────────────────────────────────────
@@ -152,6 +205,36 @@ struct ContentView: View {
                     .kerning(2)
             }
             .padding(.vertical, 28)
+
+            // Botões DEV e DATA no canto superior direito
+            VStack {
+                HStack {
+                    Spacer()
+                    HStack(spacing: 6) {
+                        Button("DATA") { showData = true }
+                            .font(.system(size: 10, weight: .bold))
+                            .kerning(1)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(Color.white.opacity(0.15))
+                            .cornerRadius(8)
+                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.3), lineWidth: 1))
+                        Button("DEV") { showLogs = true }
+                            .font(.system(size: 10, weight: .bold))
+                            .kerning(1)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(Color.white.opacity(0.15))
+                            .cornerRadius(8)
+                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.3), lineWidth: 1))
+                    }
+                    .padding(.trailing, 16)
+                }
+                Spacer()
+            }
+            .padding(.top, 56)
         }
         .ignoresSafeArea(edges: .top)
     }

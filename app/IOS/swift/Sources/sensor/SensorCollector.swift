@@ -35,6 +35,10 @@ final class SensorCollector: NSObject {
     private var windowSizeMs: Int64 = 30_000
     private var isRunning = false
 
+    // Retenção máxima de amostras no buffer (também o tecto da janela dinâmica).
+    // Uma captura manual mais longa que isto fica automaticamente limitada a 180s.
+    static let maxWindowMs: Int64 = 180_000
+
     // ── CLLocationManager (GPS) ───────────────────────
     private let locationManager = CLLocationManager()
     private var lastLocation: CLLocation?     // última posição conhecida (para re-amostragem)
@@ -80,7 +84,14 @@ final class SensorCollector: NSObject {
 
     /// Snapshot thread-safe da janela deslizante actual.
     func getCurrentWindow() -> SensorWindow {
-        let cutoff = nowMs() - windowSizeMs
+        return getWindow(sinceMs: nowMs() - windowSizeMs)
+    }
+
+    /// Snapshot thread-safe de todas as amostras recolhidas a partir de `sinceMs`
+    /// (inclusive). Usado pela janela dinâmica (iniciar → analisar).
+    /// A captura é limitada a `Self.maxWindowMs` (180s) — o trim não retém mais que isso.
+    func getWindow(sinceMs: Int64) -> SensorWindow {
+        let cutoff = max(sinceMs, nowMs() - Self.maxWindowMs)
         lock.lock()
         defer { lock.unlock() }
 
@@ -91,6 +102,9 @@ final class SensorCollector: NSObject {
             // motionSamples: allMotionSamples.filter { $0.timestampMs >= cutoff }   // desativado
         )
     }
+
+    /// Timestamp actual em ms — usado para marcar o início de uma captura manual.
+    func currentTimeMs() -> Int64 { nowMs() }
 
     func stopContinuous() {
         guard isRunning else { return }
@@ -212,7 +226,7 @@ final class SensorCollector: NSObject {
             return
         }
 
-        motionManager.deviceMotionUpdateInterval = 0.1   // 10 Hz
+        motionManager.deviceMotionUpdateInterval = 1.0   // 1 Hz — poupa bateria/CPU
 
         motionManager.startDeviceMotionUpdates(
             using: .xMagneticNorthZVertical,
@@ -250,12 +264,13 @@ final class SensorCollector: NSObject {
     // ─────────────────────────────────────────────────
     // MARK: - Trim periódico
     // ─────────────────────────────────────────────────
-    // Remove amostras mais antigas que 2× a janela.
+    // Remove amostras mais antigas que maxWindowMs (180s), garantindo dados
+    // suficientes para uma janela dinâmica de até 180 segundos.
 
     private func startTrimTimer() {
         trimTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
             guard let self else { return }
-            let cutoff = self.nowMs() - (self.windowSizeMs * 2)
+            let cutoff = self.nowMs() - Self.maxWindowMs
 
             self.lock.lock()
             self.allGpsReadings.removeAll      { $0.timestampMs < cutoff }

@@ -9,18 +9,8 @@ enum FeatureExtractor {
 
     /// Retorna nil se não houver nenhuma leitura GPS (mínimo necessário para o modelo).
     ///
-    /// - Parameters:
-    ///   - window: janela de amostras recolhidas pelos sensores.
-    ///   - cityBaselinePressure: pressão de referência da cidade (via WeatherService). 0 se indisponível.
-    ///   - weatherCondition: condição meteorológica ("clear" | "rain" | "overcast").
-    static func extract(
-        window: SensorWindow,
-        cityBaselinePressure: Double = 0,
-        weatherCondition: String = "clear"
-    ) -> SensorPayload? {
-        window.toPayload(
-            cityBaselinePressure: cityBaselinePressure,
-            weatherCondition:     weatherCondition
-        )
+    /// - Parameter window: janela de amostras recolhidas pelos sensores.
+    static func extract(window: SensorWindow) -> SensorPayload? {
+        window.toPayload()
     }
 }
