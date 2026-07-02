@@ -1,6 +1,33 @@
-# Vertical Context Backend
+## Product Overview
 
-This backend predicts whether a sensor window corresponds to a street-level or non-street context using a trained Random Forest model.
+These proposed system aims to support an automatic decision on whether to start a parking charge based on confidence.
+
+### 1. Layer 1: Vertical Context Classifier (ML1)
+The backend leverages a supervised **LightGBM** model trained to distinguish three vertical contexts: `street_level`, `underground`, and `above`. 
+
+Internally, the model computes the probability for each class. To evaluate the environment, we compute `non_street_confidence` (the sum of `underground` and `above_ground` probabilities) because in both cases the vehicle is not on a normal street-level public road. If this score is close to `0.0`, the system has high certainty that the vehicle is at street level.
+
+### 2. Layer 2: Spatial Context Service (PostGIS)
+Simultaneously, the backend triggers a geospatial query using **PostGIS**. By transforming the mobile coordinates into a `GEOGRAPHY` point (SRID 4326), the database intersects the location against real GeoJSON polygons of active tariff zones (`paid_zones`). It outputs:
+* `spatial_in_paid_zone`: A boolean indicating if the vehicle is inside a zone.
+* `spatial_dist_to_road_m`: The exact distance in meters to the nearest paid zone boundary..
+
+### 3. Layer 3: Charging Decision Model (ML2)
+This is the final decision engine. Instead of using rigid hardcoded thresholds, a second **LightGBM** model evaluates the holistic state of the parking event. It takes as input:
+* The vertical risk score from Model 1 (`ml1_non_street_confidence`).
+* The distance metrics calculated by PostGIS (`spatial_dist_to_road_m`).
+* The telemetry quality of the device (`gnss_accuracy_m`).
+
+The ML2 model acts as a financial gatekeeper, outputting a `final_decision` (`Charge` or `Don't charge`) along with a `confidence_to_charge` metric.
+
+## Data Engineering and Database Schema
+
+All stages of the inference lifecycle are persisted atomically inside a PostgreSQL database to allow complete audibility, performance tracking, and continuous offline retraining.
+
+* **`users`**: Manages developer and production profiles, enforcing strict constraints like `city_code` (e.g., `OPO`, `LIS`) and RGPD consent versioning.
+* **`parking_sessions`**: The core entity tracking the lifecycle of a detected stop event.
+* **`sensor_payloads`**: Stores the telemetry window separately to prevent index bloat in main tables and allow historical re-processing.
+* **`inference_logs`**: Segregates the mathematical opinion of the models (`ml1_classification`, `ml2_charge_confidence`) from the actual billing state (`final_decision`), ensuring clear metrics for Data Scientists.
 
 ## Requirements
 
@@ -52,6 +79,7 @@ From inside the backend folder:
 ```bash
 make db-test
 make db-init
+make db-load-maps
 make db-reset
 make db-shell
 ```
