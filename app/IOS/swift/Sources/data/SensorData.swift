@@ -17,7 +17,6 @@ struct SensorPayload: Codable {
     let pressureDeltaHpa: Double       // diferença entre a pressão inicial - final
     let pressureVariance: Double       // variância da pressão durante a janela
     let altitudeChangeM: Double        // variação de altitude estimada pela fórmula barométrica (metros — negativo = desceu)
-    let cityBaselinePressure: Double   // pressão no momento de rua, antes de o veiculo parar (primeira leitura da janela)
 
     // Magnetómetro
     let magneticFieldMean: Double      // intensidade média do campo magnético (µT — baixa dentro de betão/metal)
@@ -41,7 +40,6 @@ struct SensorPayload: Codable {
         case pressureDeltaHpa           = "pressure_delta"
         case pressureVariance           = "pressure_variance"
         case altitudeChangeM            = "altitude_delta"
-        case cityBaselinePressure       = "city_baseline_pressure"
 
         case magneticFieldMean          = "magnetic_field_mean"
         case magneticFieldDelta         = "magnetic_field_delta"
@@ -161,8 +159,7 @@ extension Date {
 extension SensorWindow {
 
     /// Constrói o payload a partir das amostras brutas da janela.
-    /// O `cityBaselinePressure` deixa de vir da API meteorológica — é a
-    /// primeira leitura barométrica da janela (pressão de rua, antes de parar).
+
     func toPayload() -> SensorPayload? {
 
         guard !gpsReadings.isEmpty else { return nil }
@@ -181,21 +178,18 @@ extension SensorWindow {
         let gpsLostRatio     = Double(signalLost) / Double(gpsReadings.count)
 
         // ── Barómetro ─────────────────────────────────
-        // cityBaselinePressure → primeira leitura (rua, antes de parar)
         // pressureHpa          → última leitura (onde o veículo parou)
         // pressureDeltaHpa     → inicial - final
         let pressureHpa:           Double
         let pressureDeltaHpa:      Double
         let pressureVariance:      Double
         let altitudeChangeM:       Double
-        let cityBaselinePressure:  Double
 
         if let first = pressureReadings.first, let last = pressureReadings.last {
             let hPaValues   = pressureReadings.map { Double($0.hPa) }
             let firstPressure = Double(first.hPa)
             let lastPressure  = Double(last.hPa)
 
-            cityBaselinePressure = firstPressure
             pressureHpa          = lastPressure
             pressureDeltaHpa     = firstPressure - lastPressure
             pressureVariance     = hPaValues.variance
@@ -203,7 +197,6 @@ extension SensorWindow {
             // Pressão sobe (desceu) → altitudeChangeM negativo.
             altitudeChangeM      = (firstPressure - lastPressure) * 8.5
         } else {
-            cityBaselinePressure = 0
             pressureHpa          = 0
             pressureDeltaHpa     = 0
             pressureVariance     = 0
@@ -236,7 +229,6 @@ extension SensorWindow {
             pressureDeltaHpa:      pressureDeltaHpa,
             pressureVariance:      pressureVariance,
             altitudeChangeM:       altitudeChangeM,
-            cityBaselinePressure:  cityBaselinePressure,
             magneticFieldMean:     magneticFieldMean,
             magneticFieldDelta:    magneticFieldDelta,
             magneticFieldVariance: magneticFieldVariance,

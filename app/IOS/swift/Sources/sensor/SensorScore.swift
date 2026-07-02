@@ -51,8 +51,8 @@ extension SensorWindow {
     /// Parâmetros de calibração do score. Valores iniciais — a rever com dados de campo.
     struct ScoreParams {
         var rateMs:      Int64  = 5_000   // janela de variação (Passo 1)
-        var minSpeedMps: Double = 2.5     // gate de rua (Passo 2)
-        var deadband:    Double = 0.5     // em σ: abaixo disto → 0 (Passo 4)
+        var minSpeedMps: Double = 0.5     // gate de rua (Passo 2)
+        var deadband:    Double = 0.3     // em σ: abaixo disto → 0 (Passo 4)
         var cap:         Double = 3.0     // em σ: tecto por sensor (Passo 4)
         var weightAcc:      Double = 1.0  // pesos (Passo 5)
         var weightSpeed:    Double = 1.0
