@@ -22,8 +22,8 @@ CREATE TYPE session_status AS ENUM (
 );
 
 CREATE TYPE model_decision AS ENUM (
-    'Charge',             -- system decided to charge
-    'Don''t charge'           -- score below the minimum threshold
+    'charge',             -- system decided to charge
+    'no_charge'           -- score below the minimum threshold
 );
 
 CREATE TYPE city_code AS ENUM (
@@ -180,7 +180,7 @@ CREATE TABLE inference_logs (
     ml2_decision                 model_decision,
 
     -- Final pipeline decision
-    final_decision              model_decision NOT NULL DEFAULT 'Don''t charge',
+    final_decision              model_decision NOT NULL DEFAULT 'no_charge',
     final_confidence            NUMERIC(5,4)
 );
 
@@ -268,7 +268,7 @@ CREATE OR REPLACE VIEW v_model_performance AS
 SELECT
     il.final_decision,
     tl.location_type                            AS true_label,
-    (il.final_decision = 'Charge' AND tl.location_type IN ('street_paid')) AS model_was_correct,
+    (il.final_decision = 'charge' AND tl.location_type IN ('street_paid')) AS model_was_correct,
     COUNT(*)                                    AS count,
     AVG(il.final_confidence)                    AS avg_confidence
 FROM inference_logs il

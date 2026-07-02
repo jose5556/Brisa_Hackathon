@@ -18,7 +18,7 @@ This is the final decision engine. Instead of using rigid hardcoded thresholds, 
 * The distance metrics calculated by PostGIS (`spatial_dist_to_road_m`).
 * The telemetry quality of the device (`gnss_accuracy_m`).
 
-The ML2 model acts as a financial gatekeeper, outputting a `final_decision` (`Charge` or `Don't charge`) along with a `confidence_to_charge` metric.
+The ML2 model acts as a financial gatekeeper, outputting a `final_decision` (`charge` or `no_charge`) along with a `confidence_to_charge` metric.
 
 ## Data Engineering and Database Schema
 

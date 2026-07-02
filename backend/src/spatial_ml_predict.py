@@ -22,12 +22,12 @@ def predict_final_decision(ml1_confidence: float, gnss_accuracy_m: float, distan
 
     X = pd.DataFrame([row], columns=features).astype(float)
 
-    # (0 = Don't charge, 1 = Charge)
+    # (0 = no_charge, 1 = charge)
     probabilities = model.predict_proba(X)[0]
     charge_prob = float(probabilities[1])
 
     # if the probability of charging is greater than 90%, charge
-    final_decision = "Charge" if charge_prob >= 0.90 else "Don't charge"
+    final_decision = "charge" if charge_prob >= 0.90 else "no_charge"
 
     return {
         "final_decision": final_decision,
