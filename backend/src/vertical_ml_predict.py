@@ -30,13 +30,13 @@ def predict_vertical_context(payload: dict) -> dict:
         "magnetic_field_delta": payload.get("magnetic_field_delta"),
         "gnss_accuracy_m": payload.get("gnss_accuracy_m") or payload.get("gnss_accuracy_mean"),
         "gnss_accuracy_delta": payload.get("gnss_accuracy_delta"),
-        "gnss_lost_ratio": payload.get("gnss_lost_ratio") or payload.get("gps_lost_ratio"), # curl: gnss_lost_ratio
+        "gnss_lost_ratio": payload.get("gnss_lost_ratio")
     }
 
     row = {}
 
     for feature in features:
-        row[feature] = payload.get(feature, np.nan)
+        row[feature] = mapping.get(feature, np.nan)
 
     X = pd.DataFrame([row], columns=features)
 
