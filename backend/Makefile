@@ -20,6 +20,7 @@ DOCKER_COMPOSE := docker compose -f $(COMPOSE_FILE)
 .PHONY: \
 	help \
 	venv \
+	activate \
 	install \
 	data \
 	train \
@@ -39,6 +40,7 @@ DOCKER_COMPOSE := docker compose -f $(COMPOSE_FILE)
 help:
 	@echo "Available targets:"
 	@echo "  make venv        - create the backend virtual environment"
+	@echo "  make activate    - open a shell with the virtual environment activated"
 	@echo "  make install     - install Python dependencies"
 	@echo "  make data        - generate synthetic training data"
 	@echo "  make train       - train the ML model"

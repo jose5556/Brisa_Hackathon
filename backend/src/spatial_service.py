@@ -39,7 +39,7 @@ def get_spatial_context(db: Session, latitude: float, longitude: float, city: st
     distance = float(result["distance_to_zone_m"])
     
     return {
-        "in_paid_zone": distance <= 0.0, # If the distance is 0, it's inside the zone
+        "in_paid_zone": distance <= 0.0,
         "zone_id": str(result["zone_id"]),
         "distance_to_zone_m": distance
     }
