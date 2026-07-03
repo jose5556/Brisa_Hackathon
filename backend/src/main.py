@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 
 from src.database_session_connection import get_db
 from src.parking_service import analyze_and_store_parking_event
-from src.vertical_ml_predict import predict_vertical_context
 
 import subprocess
 
@@ -81,9 +80,9 @@ def db_schema_info(db: Session = Depends(get_db)):
 
 
 @app.post("/predict")
-def predict(payload: dict[str, Any]):
+def predict(payload: dict[str, Any], db: Session = Depends(get_db)):
     try:
-        return predict_vertical_context(payload)
+        return analyze_and_store_parking_event(db, payload)
 
     except FileNotFoundError as error:
         raise HTTPException(status_code=500, detail=str(error))
@@ -142,6 +141,39 @@ def latest_parking_events(
         "count": len(rows),
         "events": [dict(row) for row in rows],
     }
+
+@app.get("/sensor-payloads/latest")
+def latest_sensor_payloads(
+    limit: int = 10,
+    db: Session = Depends(get_db),
+):
+    rows = db.execute(
+        text(
+            """
+            SELECT
+                sp.id AS payload_id,
+                sp.session_id,
+                ps.user_id,
+                ps.city,
+                sp.window_start_at,
+                sp.window_end_at,
+                sp.gnss_accuracy_m,
+                sp.gnss_lost_ratio,
+                sp.raw_payload
+            FROM sensor_payloads sp
+            JOIN parking_sessions ps ON ps.id = sp.session_id
+            ORDER BY sp.received_at DESC
+            LIMIT :limit
+            """
+        ),
+        {"limit": limit},
+    ).mappings().all()
+
+    return {
+        "count": len(rows),
+        "payloads": [dict(row) for row in rows],
+    }
+
 
 @app.get("/parking-events/{session_id}")
 def get_parking_event(

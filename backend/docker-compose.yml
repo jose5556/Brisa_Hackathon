@@ -13,18 +13,5 @@ services:
       - parking_db_data:/var/lib/postgresql/data
       - ./database/schema/schema.sql:/docker-entrypoint-initdb.d/10_schema.sql
 
-  api:
-    build: .
-    container_name: parking-api
-    restart: unless-stopped
-    ports:
-      - "8000:8000"
-    env_file:
-      - .env
-    volumes:
-      - .:/app
-    depends_on:
-      - db
-
 volumes:
-  parking_db_data:      
+  parking_db_data:

@@ -29,7 +29,6 @@ final class SensorRepository {
         #if DEBUG
         print("[SensorRepository] Payload pronto — \(payload.windowDurationS)s de janela")
         print("  lat: \(payload.latitude), lon: \(payload.longitude)")
-        print("  cityBaselinePressure: \(payload.cityBaselinePressure) hPa")
         print("  pressureHpa: \(payload.pressureHpa) hPa")
         print("  pressureDeltaHpa: \(payload.pressureDeltaHpa) hPa")
         #endif
