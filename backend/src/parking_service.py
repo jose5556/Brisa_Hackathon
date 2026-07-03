@@ -320,7 +320,8 @@ def analyze_and_store_parking_event(
         spatial = get_spatial_context(
             db=db, 
             latitude=payload.get("latitude"), 
-            longitude=payload.get("longitude")
+            longitude=payload.get("longitude"),
+            city=payload.get("city"),
         )
 
         ml2_prediction = predict_final_decision(

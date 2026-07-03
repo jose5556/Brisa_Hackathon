@@ -111,6 +111,7 @@ Example for street level:
 curl -X POST "http://100.121.113.91:8000/parking-events/analyze" \
      -H "Content-Type: application/json" \
      -d '{
+       "city":"OPO",
        "latitude": 41.1579,
        "longitude": -8.6291,
        "gps_accuracy_mean": 5.2,
@@ -133,9 +134,10 @@ curl -X POST "http://100.121.113.91:8000/parking-events/analyze" \
 Example for underground:
 
 ```bash
-curl -X POST "http://100.121.113.91:8000/parking-events/analyze" \
+curl -X POST "http://localhost:8000/parking-events/analyze" \
      -H "Content-Type: application/json" \
      -d '{
+       "city":"OPO",
        "latitude": 41.1579,
        "longitude": -8.6291,
        "gnss_accuracy_mean": 85.0,
