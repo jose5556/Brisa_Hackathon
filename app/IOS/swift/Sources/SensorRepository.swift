@@ -68,6 +68,21 @@ final class SensorRepository {
     func send(payload: SensorPayload) async throws -> PredictionResponse {
         return try await SensorApiClient.shared.predictVerticalContext(payload: payload)
     }
+
+    // ── sendFeedback ──────────────────────────────────────
+    // Passo 5 (opcional): reencaminha o veredicto do utilizador sobre a decisão
+    // de cobrança para a API de feedback.
+    func sendFeedback(
+        payloadId: String,
+        sessionId: String,
+        feedback: FeedbackVerdict
+    ) async throws {
+        try await SensorApiClient.shared.sendFeedback(
+            payloadId: payloadId,
+            sessionId: sessionId,
+            feedback: feedback
+        )
+    }
 }
 
 // ── Erros ─────────────────────────────────────────────

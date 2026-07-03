@@ -68,6 +68,26 @@ struct PredictionResponse: Decodable, Equatable {
     }
 }
 
+// ── Feedback model ─────────────────────────────────────
+// Enviado para /feedback depois de o utilizador validar a decisão
+// devolvida por /parking-events/analyze.
+enum FeedbackVerdict: String, Codable {
+    case correct
+    case incorrect
+}
+
+struct FeedbackRequest: Encodable {
+    let payloadId: String
+    let sessionId: String
+    let feedback: FeedbackVerdict
+
+    enum CodingKeys: String, CodingKey {
+        case payloadId = "payload_id"
+        case sessionId = "session_id"
+        case feedback
+    }
+}
+
 // ── Client singleton ───────────────────────────────────
 final class SensorApiClient {
 
@@ -162,6 +182,61 @@ final class SensorApiClient {
             return try decoder.decode(PredictionResponse.self, from: data)
         } catch {
             throw SensorApiError.decodingFailed(error)
+        }
+    }
+
+    // ── sendFeedback ───────────────────────────────────
+    // Envia o veredicto do utilizador (correto/incorreto) sobre a decisão de
+    // cobrança para POST /feedback. Não devolve corpo — só valida o código HTTP.
+    func sendFeedback(
+        payloadId: String,
+        sessionId: String,
+        feedback: FeedbackVerdict
+    ) async throws {
+
+        guard let url = URL(string: ServerConfig.baseURL + "feedback") else {
+            throw SensorApiError.invalidURL
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        let body = FeedbackRequest(payloadId: payloadId,
+                                   sessionId: sessionId,
+                                   feedback: feedback)
+        do {
+            request.httpBody = try encoder.encode(body)
+        } catch {
+            throw SensorApiError.encodingFailed
+        }
+
+        #if DEBUG
+        if let httpBody = request.httpBody,
+           let json = String(data: httpBody, encoding: .utf8) {
+            print("[SensorApiClient] → POST /feedback\n\(json)")
+        }
+        #endif
+
+        let data: Data
+        let response: URLResponse
+
+        do {
+            (data, response) = try await session.data(for: request)
+        } catch {
+            throw SensorApiError.networkError(error)
+        }
+
+        if let http = response as? HTTPURLResponse {
+            #if DEBUG
+            print("[SensorApiClient] ← HTTP \(http.statusCode)")
+            if let json = String(data: data, encoding: .utf8) { print(json) }
+            #endif
+
+            guard (200...299).contains(http.statusCode) else {
+                throw SensorApiError.httpError(statusCode: http.statusCode)
+            }
         }
     }
 }
