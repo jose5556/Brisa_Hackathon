@@ -19,7 +19,6 @@ extension Color {
 struct ContentView: View {
 
     @StateObject private var viewModel = SensorViewModel()
-    @Environment(\.scenePhase) private var scenePhase
 
     // Ciclo de vida real da app — usado para parar/retomar a coleta.
     // (Substitui o .onDisappear, que parava indevidamente ao abrir a aba DEV.)
@@ -30,6 +29,8 @@ struct ContentView: View {
     // Controla navegação para a tela de logs DEV e tela DATA
     @State private var showLogs = false
     @State private var showData = false
+    // Controla a apresentação do ecrã de configuração do servidor
+    @State private var showSettings = false
     private let progressTimer = Timer.publish(every: 0.1, on: .main, in: .common).autoconnect()
 
     var isLoading: Bool { viewModel.uploadResult == .loading }
@@ -58,13 +59,13 @@ struct ContentView: View {
                     HStack(spacing: 10) {
                         SensorChip(name: "GPS",   label: "Localização")
                         SensorChip(name: "Bar.",  label: "Pressão")
-                        SensorChip(name: "Acel.", label: "Movimento")
+                    //    SensorChip(name: "Acel.", label: "Movimento") 
                         SensorChip(name: "Mag.",  label: "Campo")
                     }
 
                     // Resultado
-                    if case .success(let classification, let confidence) = viewModel.uploadResult {
-                        ResultCard(classification: classification, confidence: confidence)
+                    if case .success(let response) = viewModel.uploadResult {
+                        ResultCard(response: response)
                     }
 
                     // Erro
@@ -125,12 +126,12 @@ struct ContentView: View {
                                 ProgressView()
                                     .progressViewStyle(CircularProgressViewStyle(tint: .white))
                                     .scaleEffect(0.85)
-                                Text("Analisando… (score)")
+                                Text("Analisando…")
                                     .font(.system(size: 15, weight: .bold))
                                     .foregroundColor(.white)
                                     .kerning(0.5)
                             } else {
-                                Text("▶  ANALISAR (SCORE)")
+                                Text("▶  ANALISAR")
                                     .font(.system(size: 15, weight: .bold))
                                     .foregroundColor(.white)
                                     .kerning(1)
@@ -172,6 +173,9 @@ struct ContentView: View {
         .navigationDestination(isPresented: $showData) {
             DataCollectionView(viewModel: viewModel)
         }
+        .sheet(isPresented: $showSettings) {
+            ServerSettingsView()
+        }
         } // NavigationStack
     }
 
@@ -209,6 +213,18 @@ struct ContentView: View {
             // Botões DEV e DATA no canto superior direito
             VStack {
                 HStack {
+                    // Botão de configuração do servidor (canto superior esquerdo)
+                    Button(action: { showSettings = true }) {
+                        Image(systemName: "wifi")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.white)
+                            .frame(width: 32, height: 32)
+                            .background(Color.white.opacity(0.15))
+                            .cornerRadius(8)
+                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.3), lineWidth: 1))
+                    }
+                    .padding(.leading, 16)
+
                     Spacer()
                     HStack(spacing: 6) {
                         Button("DATA") { showData = true }
@@ -331,21 +347,36 @@ struct SensorChip: View {
 
 // ── ResultCard ────────────────────────────────────────
 struct ResultCard: View {
-    let classification: String
-    let confidence: Double
+    let response: PredictionResponse
+
+    private var shouldCharge: Bool {
+        response.finalDecision.lowercased().contains("don't") == false
+            && response.finalDecision.lowercased().contains("nao") == false
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("ÚLTIMA CLASSIFICAÇÃO")
+            Text("CLASSIFICAÇÃO")
                 .font(.system(size: 10, weight: .bold))
                 .foregroundColor(.vvMuted)
                 .kerning(1.5)
-            Text(classification)
+
+            Text(response.finalDecision)
                 .font(.system(size: 22, weight: .black))
-                .foregroundColor(.vvText)
-            Text(String(format: "Confiança: %.0f%%", confidence * 100))
-                .font(.system(size: 12))
-                .foregroundColor(.vvMuted)
+                .foregroundColor(shouldCharge ? .vvGreen : .vvText)
+
+            Divider().background(Color.vvBorder)
+
+            ResultRow(label: "Classificação", value: response.ml1Classification)
+            ResultRow(label: "Confiança de que é não rua",
+                      value: String(format: "%.1f%%", response.ml1NonStreetConfidence * 100))
+            ResultRow(label: "Confiança para cobrar",
+                      value: String(format: "%.2f%%", response.confidenceToCharge * 100))
+            ResultRow(label: "Distância até zona paga",
+                      value: String(format: "%.0f m", response.distanceToZoneM))
+            ResultRow(label: "Session ID", value: response.sessionId)
+            ResultRow(label: "Payload ID", value: response.payloadId)
+            ResultRow(label: "Inference ID", value: response.inferenceId)
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -355,6 +386,27 @@ struct ResultCard: View {
             RoundedRectangle(cornerRadius: 14)
                 .stroke(Color.vvBorder, lineWidth: 1)
         )
+    }
+}
+
+// ── ResultRow ─────────────────────────────────────────
+private struct ResultRow: View {
+    let label: String
+    let value: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Text(label)
+                .font(.system(size: 12))
+                .foregroundColor(.vvMuted)
+            Spacer(minLength: 8)
+            Text(value)
+                .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                .foregroundColor(.vvText)
+                .multilineTextAlignment(.trailing)
+                .lineLimit(1)
+                .truncationMode(.middle)
+        }
     }
 }
 
