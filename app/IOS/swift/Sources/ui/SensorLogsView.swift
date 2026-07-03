@@ -143,24 +143,30 @@ struct SensorLogsView: View {
                     }
 
                     // ── Secção 4: Resposta do modelo ──
-                    if case .success(let classification, let confidence) = viewModel.uploadResult {
+                    if case .success(let response) = viewModel.uploadResult {
                         LogSection(title: "MODEL RESPONSE", badge: "200 OK") {
                             VStack(alignment: .leading, spacing: 6) {
-                                DataRow(key: "classification",      value: classification, highlight: true)
-                                DataRow(key: "non_street_confidence", value: String(format: "%.2f", confidence))
+                                DataRow(key: "final_decision",           value: response.finalDecision, highlight: true)
+                                DataRow(key: "ml1_classification",       value: response.ml1Classification)
+                                DataRow(key: "ml1_non_street_confidence", value: String(format: "%.4f", response.ml1NonStreetConfidence))
+                                DataRow(key: "confidence_to_charge",     value: String(format: "%.4f", response.confidenceToCharge))
+                                DataRow(key: "distance_to_zone_m",       value: String(format: "%.1f", response.distanceToZoneM))
+                                DataRow(key: "session_id",               value: response.sessionId)
+                                DataRow(key: "payload_id",               value: response.payloadId)
+                                DataRow(key: "inference_id",             value: response.inferenceId)
 
-                                // Barra de confiança
+                                // Barra de confiança (não-rua)
                                 HStack(spacing: 8) {
                                     GeometryReader { geo in
                                         ZStack(alignment: .leading) {
                                             RoundedRectangle(cornerRadius: 2).fill(Color(white: 0.1)).frame(height: 4)
                                             RoundedRectangle(cornerRadius: 2)
-                                                .fill(confidence > 0.5 ? Color.orange : Color.vvGreen)
-                                                .frame(width: geo.size.width * confidence, height: 4)
+                                                .fill(response.ml1NonStreetConfidence > 0.5 ? Color.orange : Color.vvGreen)
+                                                .frame(width: geo.size.width * response.ml1NonStreetConfidence, height: 4)
                                         }
                                     }
                                     .frame(height: 4)
-                                    Text(String(format: "%.0f%%", confidence * 100))
+                                    Text(String(format: "%.0f%%", response.ml1NonStreetConfidence * 100))
                                         .font(.system(size: 10, design: .monospaced))
                                         .foregroundColor(.gray)
                                         .frame(width: 30, alignment: .trailing)

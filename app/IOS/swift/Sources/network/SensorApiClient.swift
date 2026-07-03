@@ -46,13 +46,25 @@ enum SensorApiError: Error, LocalizedError {
 }
 
 // ── Response model ─────────────────────────────────────
-struct PredictionResponse: Decodable {
-    let nonStreetConfidence: Double
-    let classification: String
+struct PredictionResponse: Decodable, Equatable {
+    let sessionId: String
+    let payloadId: String
+    let inferenceId: String
+    let ml1Classification: String
+    let ml1NonStreetConfidence: Double
+    let distanceToZoneM: Double
+    let finalDecision: String
+    let confidenceToCharge: Double
 
     enum CodingKeys: String, CodingKey {
-        case nonStreetConfidence = "non_street_confidence"
-        case classification      = "classification"
+        case sessionId              = "session_id"
+        case payloadId              = "payload_id"
+        case inferenceId            = "inference_id"
+        case ml1Classification      = "ml1_classification"
+        case ml1NonStreetConfidence = "ml1_non_street_confidence"
+        case distanceToZoneM        = "distance_to_zone_m"
+        case finalDecision          = "final_decision"
+        case confidenceToCharge     = "confidence_to_charge"
     }
 }
 
@@ -174,8 +186,9 @@ Task {
     }
     do {
         let result = try await SensorApiClient.shared.predictVerticalContext(payload: payload)
-        print("Classification : \(result.classification)")
-        print("Confidence     : \(result.nonStreetConfidence)")
+        print("Classification : \(result.ml1Classification)")
+        print("Decision       : \(result.finalDecision)")
+        print("Confidence     : \(result.ml1NonStreetConfidence)")
     } catch {
         print("Erro: \(error.localizedDescription)")
     }

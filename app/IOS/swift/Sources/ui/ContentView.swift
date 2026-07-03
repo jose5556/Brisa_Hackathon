@@ -64,8 +64,8 @@ struct ContentView: View {
                     }
 
                     // Resultado
-                    if case .success(let classification, let confidence) = viewModel.uploadResult {
-                        ResultCard(classification: classification, confidence: confidence)
+                    if case .success(let response) = viewModel.uploadResult {
+                        ResultCard(response: response)
                     }
 
                     // Erro
@@ -347,8 +347,12 @@ struct SensorChip: View {
 
 // ── ResultCard ────────────────────────────────────────
 struct ResultCard: View {
-    let classification: String
-    let confidence: Double
+    let response: PredictionResponse
+
+    private var shouldCharge: Bool {
+        response.finalDecision.lowercased().contains("don't") == false
+            && response.finalDecision.lowercased().contains("nao") == false
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -356,12 +360,23 @@ struct ResultCard: View {
                 .font(.system(size: 10, weight: .bold))
                 .foregroundColor(.vvMuted)
                 .kerning(1.5)
-            Text(classification)
+
+            Text(response.finalDecision)
                 .font(.system(size: 22, weight: .black))
-                .foregroundColor(.vvText)
-            Text(String(format: "Confiança: %.0f%%", confidence * 100))
-                .font(.system(size: 12))
-                .foregroundColor(.vvMuted)
+                .foregroundColor(shouldCharge ? .vvGreen : .vvText)
+
+            Divider().background(Color.vvBorder)
+
+            ResultRow(label: "Classificação", value: response.ml1Classification)
+            ResultRow(label: "Confiança não-rua",
+                      value: String(format: "%.1f%%", response.ml1NonStreetConfidence * 100))
+            ResultRow(label: "Confiança p/ cobrar",
+                      value: String(format: "%.2f%%", response.confidenceToCharge * 100))
+            ResultRow(label: "Distância à zona",
+                      value: String(format: "%.0f m", response.distanceToZoneM))
+            ResultRow(label: "Session ID", value: response.sessionId)
+            ResultRow(label: "Payload ID", value: response.payloadId)
+            ResultRow(label: "Inference ID", value: response.inferenceId)
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -371,6 +386,27 @@ struct ResultCard: View {
             RoundedRectangle(cornerRadius: 14)
                 .stroke(Color.vvBorder, lineWidth: 1)
         )
+    }
+}
+
+// ── ResultRow ─────────────────────────────────────────
+private struct ResultRow: View {
+    let label: String
+    let value: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Text(label)
+                .font(.system(size: 12))
+                .foregroundColor(.vvMuted)
+            Spacer(minLength: 8)
+            Text(value)
+                .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                .foregroundColor(.vvText)
+                .multilineTextAlignment(.trailing)
+                .lineLimit(1)
+                .truncationMode(.middle)
+        }
     }
 }
 

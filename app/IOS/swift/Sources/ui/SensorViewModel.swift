@@ -200,10 +200,7 @@ final class SensorViewModel: ObservableObject {
 
             // 2. Só depois tenta enviar para a API de classificação.
             let response = try await repository.send(payload: payload)
-            uploadResult = .success(
-                classification: response.classification,
-                confidence: response.nonStreetConfidence
-            )
+            uploadResult = .success(response: response)
         } catch SensorApiError.networkError(let e) {
             uploadResult = .error(message: "Servidor inacessível: \(e.localizedDescription)")
         } catch SensorApiError.httpError(let code) {
