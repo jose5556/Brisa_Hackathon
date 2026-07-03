@@ -97,18 +97,18 @@ source venv/bin/activate
 python -m pip install -r requirements.txt
 ```
 
-## Example prediction request
+## Example parking analysis request
 
 Send a POST request to:
 
 ```http
-POST /predict
+POST /parking-events/analyze
 ```
 
 Example for street level:
 
 ```bash
-curl -X POST "http://localhost:8000/parking-events/analyze" \
+curl -X POST "http://100.121.113.91:8000/parking-events/analyze" \
      -H "Content-Type: application/json" \
      -d '{
        "latitude": 41.1579,
@@ -133,7 +133,7 @@ curl -X POST "http://localhost:8000/parking-events/analyze" \
 Example for underground:
 
 ```bash
-curl -X POST "http://localhost:8000/parking-events/analyze" \
+curl -X POST "http://100.121.113.91:8000/parking-events/analyze" \
      -H "Content-Type: application/json" \
      -d '{
        "latitude": 41.1579,
