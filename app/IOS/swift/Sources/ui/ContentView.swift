@@ -356,7 +356,7 @@ struct ResultCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("ÚLTIMA CLASSIFICAÇÃO")
+            Text("CLASSIFICAÇÃO")
                 .font(.system(size: 10, weight: .bold))
                 .foregroundColor(.vvMuted)
                 .kerning(1.5)
@@ -368,11 +368,11 @@ struct ResultCard: View {
             Divider().background(Color.vvBorder)
 
             ResultRow(label: "Classificação", value: response.ml1Classification)
-            ResultRow(label: "Confiança não-rua",
+            ResultRow(label: "Confiança de que é não rua",
                       value: String(format: "%.1f%%", response.ml1NonStreetConfidence * 100))
-            ResultRow(label: "Confiança p/ cobrar",
+            ResultRow(label: "Confiança para cobrar",
                       value: String(format: "%.2f%%", response.confidenceToCharge * 100))
-            ResultRow(label: "Distância à zona",
+            ResultRow(label: "Distância até zona paga",
                       value: String(format: "%.0f m", response.distanceToZoneM))
             ResultRow(label: "Session ID", value: response.sessionId)
             ResultRow(label: "Payload ID", value: response.payloadId)
