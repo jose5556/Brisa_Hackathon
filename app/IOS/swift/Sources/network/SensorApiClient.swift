@@ -104,7 +104,7 @@ final class SensorApiClient {
         payload: SensorPayload
     ) async throws -> PredictionResponse {
 
-        guard let url = URL(string: ServerConfig.baseURL + "predict") else {
+        guard let url = URL(string: ServerConfig.baseURL + "parking-events/analyze") else {
             throw SensorApiError.invalidURL
         }
 
@@ -122,7 +122,7 @@ final class SensorApiClient {
         #if DEBUG
         if let body = request.httpBody,
            let json = String(data: body, encoding: .utf8) {
-            print("[SensorApiClient] → POST /predict\n\(json)")
+            print("[SensorApiClient] → POST /parking-events/analyze\n\(json)")
         }
         #endif
 
