@@ -268,6 +268,10 @@ def create_inference_log(
 
     ml1_conf = float(ml1_prediction["non_street_confidence"])
     ml1_class = str(ml1_prediction["classification"])
+    probs                = ml1_prediction.get("probabilities", {})
+    ml1_street_prob      = probs.get("street_level")
+    ml1_underground_prob = probs.get("underground")
+    ml1_above_prob       = probs.get("above")
 
     final_decision = str(ml2_prediction["final_decision"])
     final_confidence = float(ml2_prediction["ml2_charge_confidence"])
@@ -279,6 +283,9 @@ def create_inference_log(
                 session_id,
                 payload_id,
 
+                ml1_street_prob,
+                ml1_underground_prob,
+                ml1_above_prob,
                 ml1_non_street_confidence,
                 ml1_classification,
 
@@ -296,6 +303,9 @@ def create_inference_log(
                 :session_id,
                 :payload_id,
 
+                :ml1_street_prob,
+                :ml1_underground_prob,
+                :ml1_above_prob,
                 :ml1_non_street_confidence,
                 :ml1_classification,
 
@@ -316,6 +326,9 @@ def create_inference_log(
             "session_id": session_id,
             "payload_id": payload_id,
 
+            "ml1_street_prob": ml1_street_prob,
+            "ml1_underground_prob": ml1_underground_prob,
+            "ml1_above_prob": ml1_above_prob,
             "ml1_non_street_confidence": ml1_conf,
             "ml1_classification": ml1_class,
 
