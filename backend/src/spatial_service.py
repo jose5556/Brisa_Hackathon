@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 log = logging.getLogger(__name__)
 
-SEARCH_RADIUS_M = 150.0
+SEARCH_RADIUS_M = 30.0
 
 def get_spatial_context(
     db: Session,

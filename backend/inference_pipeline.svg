@@ -1,0 +1,141 @@
+<svg width="680" viewBox="0 0 680 920" xmlns="http://www.w3.org/2000/svg" role="img">
+  <title>AutoPark — Inference pipeline flow diagram</title>
+  <desc>Flowchart showing the full inference pipeline from iOS payload to final charge or abort decision, through Model 1, Spatial Service, and Model 2.</desc>
+
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <style>
+      text { font-family: ui-sans-serif, system-ui, sans-serif; }
+      .th  { font-size: 13px; font-weight: 600; fill: #1a1a1a; }
+      .ts  { font-size: 11px; font-weight: 400; fill: #555550; }
+      .th-w { font-size: 13px; font-weight: 600; fill: #ffffff; }
+      .ts-w { font-size: 11px; font-weight: 400; fill: #e0ddd5; }
+      .th-a { font-size: 13px; font-weight: 600; fill: #633806; }
+      .ts-a { font-size: 11px; font-weight: 400; fill: #854f0b; }
+      .th-p { font-size: 13px; font-weight: 600; fill: #3c3489; }
+      .ts-p { font-size: 11px; font-weight: 400; fill: #534ab7; }
+      .th-r { font-size: 13px; font-weight: 600; fill: #ffffff; }
+      .ts-r { font-size: 11px; font-weight: 400; fill: #fca5a5; }
+      .th-g { font-size: 13px; font-weight: 600; fill: #085041; }
+    </style>
+  </defs>
+
+  <!-- background -->
+  <rect width="680" height="920" fill="#ffffff"/>
+
+  <!-- ── ENTRY ── -->
+  <rect x="215" y="20" width="250" height="44" rx="22" fill="#f1efe8" stroke="#888780" stroke-width="0.5"/>
+  <text class="th" x="340" y="37" text-anchor="middle" dominant-baseline="central">iOS app</text>
+  <text class="ts" x="340" y="54" text-anchor="middle" dominant-baseline="central">POST /parking-events/analyze</text>
+
+  <line x1="340" y1="64" x2="340" y2="88" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- ── VALIDATE ── -->
+  <rect x="215" y="90" width="250" height="52" rx="8" fill="#f1efe8" stroke="#888780" stroke-width="0.5"/>
+  <text class="th" x="340" y="111" text-anchor="middle" dominant-baseline="central">Validate payload</text>
+  <text class="ts" x="340" y="131" text-anchor="middle" dominant-baseline="central">city · gnss_accuracy · coordinates</text>
+
+  <line x1="465" y1="116" x2="530" y2="116" stroke="#a32d2d" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text class="ts" x="490" y="109" text-anchor="middle" fill="#a32d2d">invalid</text>
+  <rect x="532" y="96" width="110" height="40" rx="8" fill="#a32d2d" stroke="#791f1f" stroke-width="0.5"/>
+  <text class="th-w" x="587" y="116" text-anchor="middle" dominant-baseline="central">422 error</text>
+
+  <line x1="340" y1="142" x2="340" y2="166" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text class="ts" x="354" y="158" fill="#888780">valid</text>
+
+  <!-- ── SESSION + PAYLOAD ── -->
+  <rect x="215" y="168" width="250" height="52" rx="8" fill="#f1efe8" stroke="#888780" stroke-width="0.5"/>
+  <text class="th" x="340" y="189" text-anchor="middle" dominant-baseline="central">Create session + payload</text>
+  <text class="ts" x="340" y="209" text-anchor="middle" dominant-baseline="central">status = detecting · store sensors</text>
+
+  <line x1="340" y1="220" x2="340" y2="252" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- ── MODEL 1 CONTAINER ── -->
+  <rect x="60" y="254" width="560" height="170" rx="12" fill="#faeeda" stroke="#ba7517" stroke-width="0.5"/>
+  <text class="th-a" x="340" y="276" text-anchor="middle" dominant-baseline="central">Model 1 — vertical context classifier</text>
+
+  <rect x="215" y="290" width="250" height="52" rx="8" fill="#ef9f27" stroke="#ba7517" stroke-width="0.5"/>
+  <text class="th-w" x="340" y="311" text-anchor="middle" dominant-baseline="central">predict_vertical_context</text>
+  <text class="ts-w" x="340" y="331" text-anchor="middle" dominant-baseline="central">LightGBM · singleton bundle</text>
+
+  <line x1="340" y1="342" x2="340" y2="368" stroke="#ba7517" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <polygon points="340,370 410,392 340,414 270,392" fill="#fff8ed" stroke="#ba7517" stroke-width="0.5"/>
+  <text class="ts-a" x="340" y="388" text-anchor="middle" dominant-baseline="central">non_street_conf</text>
+  <text class="ts-a" x="340" y="403" text-anchor="middle" dominant-baseline="central">≥ threshold?</text>
+
+  <line x1="412" y1="392" x2="530" y2="392" stroke="#a32d2d" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text class="ts" x="472" y="385" text-anchor="middle" fill="#a32d2d">yes</text>
+  <rect x="532" y="372" width="80" height="40" rx="8" fill="#a32d2d" stroke="#791f1f" stroke-width="0.5"/>
+  <text class="th-r" x="572" y="387" text-anchor="middle" dominant-baseline="central">Abort</text>
+  <text class="ts-r" x="572" y="403" text-anchor="middle" dominant-baseline="central">no charge</text>
+
+  <line x1="340" y1="414" x2="340" y2="436" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text class="ts" x="354" y="428" fill="#888780">no</text>
+
+  <!-- ── SPATIAL CONTAINER ── -->
+  <rect x="60" y="438" width="560" height="170" rx="12" fill="#eeedfe" stroke="#7f77dd" stroke-width="0.5"/>
+  <text class="th-p" x="340" y="460" text-anchor="middle" dominant-baseline="central">Spatial context service — PostGIS</text>
+
+  <rect x="190" y="474" width="300" height="52" rx="8" fill="#7f77dd" stroke="#534ab7" stroke-width="0.5"/>
+  <text class="th-w" x="340" y="495" text-anchor="middle" dominant-baseline="central">get_spatial_context</text>
+  <text class="ts-w" x="340" y="515" text-anchor="middle" dominant-baseline="central">ST_DWithin 30 m · ST_Within check</text>
+
+  <line x1="340" y1="526" x2="340" y2="552" stroke="#7f77dd" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <polygon points="340,554 410,576 340,598 270,576" fill="#f5f4ff" stroke="#7f77dd" stroke-width="0.5"/>
+  <text class="ts-p" x="340" y="571" text-anchor="middle" dominant-baseline="central">in_paid_zone?</text>
+  <text class="ts-p" x="340" y="587" text-anchor="middle" dominant-baseline="central">True / False / None</text>
+
+  <line x1="412" y1="576" x2="530" y2="576" stroke="#a32d2d" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text class="ts" x="472" y="569" text-anchor="middle" fill="#a32d2d">false/none</text>
+  <rect x="532" y="556" width="80" height="40" rx="8" fill="#a32d2d" stroke="#791f1f" stroke-width="0.5"/>
+  <text class="th-r" x="572" y="571" text-anchor="middle" dominant-baseline="central">Abort</text>
+  <text class="ts-r" x="572" y="587" text-anchor="middle" dominant-baseline="central">no charge</text>
+
+  <line x1="340" y1="598" x2="340" y2="620" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text class="ts" x="354" y="612" fill="#888780">true</text>
+
+  <!-- ── MODEL 2 CONTAINER ── -->
+  <rect x="60" y="622" width="560" height="170" rx="12" fill="#faeeda" stroke="#ba7517" stroke-width="0.5"/>
+  <text class="th-a" x="340" y="644" text-anchor="middle" dominant-baseline="central">Model 2 — spatial decision classifier</text>
+
+  <rect x="190" y="658" width="300" height="52" rx="8" fill="#ef9f27" stroke="#ba7517" stroke-width="0.5"/>
+  <text class="th-w" x="340" y="679" text-anchor="middle" dominant-baseline="central">predict_final_decision</text>
+  <text class="ts-w" x="340" y="699" text-anchor="middle" dominant-baseline="central">LightGBM · threshold from PR curve</text>
+
+  <line x1="340" y1="710" x2="340" y2="736" stroke="#ba7517" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <polygon points="340,738 410,760 340,782 270,760" fill="#fff8ed" stroke="#ba7517" stroke-width="0.5"/>
+  <text class="ts-a" x="340" y="755" text-anchor="middle" dominant-baseline="central">charge_confidence</text>
+  <text class="ts-a" x="340" y="771" text-anchor="middle" dominant-baseline="central">≥ threshold?</text>
+
+  <line x1="412" y1="760" x2="530" y2="760" stroke="#a32d2d" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text class="ts" x="472" y="753" text-anchor="middle" fill="#a32d2d">no</text>
+  <rect x="532" y="740" width="80" height="40" rx="8" fill="#a32d2d" stroke="#791f1f" stroke-width="0.5"/>
+  <text class="th-r" x="572" y="755" text-anchor="middle" dominant-baseline="central">Abort</text>
+  <text class="ts-r" x="572" y="771" text-anchor="middle" dominant-baseline="central">no charge</text>
+
+  <line x1="340" y1="782" x2="340" y2="806" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text class="ts" x="354" y="797" fill="#888780">yes</text>
+
+  <!-- ── INFERENCE LOG ── -->
+  <rect x="215" y="808" width="250" height="52" rx="8" fill="#f1efe8" stroke="#888780" stroke-width="0.5"/>
+  <text class="th" x="340" y="829" text-anchor="middle" dominant-baseline="central">Save inference_log</text>
+  <text class="ts" x="340" y="849" text-anchor="middle" dominant-baseline="central">ml1 · spatial · ml2 scores</text>
+
+  <line x1="340" y1="860" x2="340" y2="878" stroke="#888780" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- ── CONFIRMED ── -->
+  <rect x="215" y="880" width="250" height="28" rx="14" fill="#1d9e75" stroke="#0f6e56" stroke-width="0.5"/>
+  <text class="th-g" x="340" y="894" text-anchor="middle" dominant-baseline="central" fill="#ffffff">Charge — status: confirmed</text>
+
+  <!-- ── LEGEND ── -->
+  <rect x="62" y="862" width="130" height="50" rx="6" fill="none" stroke="#d3d1c7" stroke-width="0.5"/>
+  <rect x="70" y="870" width="12" height="12" rx="2" fill="#a32d2d" stroke="#791f1f" stroke-width="0.5"/>
+  <text class="ts" x="88" y="876" dominant-baseline="central">Abort — no charge</text>
+  <rect x="70" y="892" width="12" height="12" rx="2" fill="#1d9e75" stroke="#0f6e56" stroke-width="0.5"/>
+  <text class="ts" x="88" y="898" dominant-baseline="central">Charge confirmed</text>
+</svg>
