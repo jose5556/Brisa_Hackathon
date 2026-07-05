@@ -105,7 +105,7 @@ Send a POST request to:
 POST /parking-events/analyze
 ```
 
-Example for street level:
+Example for street level, **without charge**:
 
 ```bash
 curl -X POST "http://100.121.113.91:8000/parking-events/analyze" \
@@ -130,6 +130,29 @@ curl -X POST "http://100.121.113.91:8000/parking-events/analyze" \
        "gnss_accuracy_delta": 0.5
      }'
 ```
+
+Example for street level, **charge**:
+curl -X POST "http://localhost:8000/parking-events/analyze" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "city":"OPO",
+       "latitude": 41.14723,
+       "longitude": -8.58906,
+       "gps_accuracy_mean": 5.2,
+       "device_os_version": "iOS 17.5",
+       "app_version": "1.0.0",
+       "window_duration_s": 10.0,
+       "pressure_delta": -0.02,
+       "altitude_delta": 0.1,
+       "gnss_lost_ratio": 0.0,
+       "pressure_hpa": 1012.5,
+       "pressure_variance": 0.01,
+       "magnetic_variance_total": 0.05,
+       "magnetic_field_mean": 45.2,
+       "magnetic_field_delta": 1.2,
+       "gnss_accuracy_m": 5.2,
+       "gnss_accuracy_delta": 0.5
+     }'
 
 Example for underground:
 

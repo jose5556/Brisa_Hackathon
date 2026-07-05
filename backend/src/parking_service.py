@@ -1,5 +1,6 @@
 import json
 import time
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -10,10 +11,34 @@ from src.vertical_ml_predict import predict_vertical_context
 from src.spatial_service import get_spatial_context
 from src.spatial_ml_predict import predict_final_decision
 
-DEFAULT_CITY = "OPO"
-DEFAULT_PLATFORM = "ios"
+log = logging.getLogger(__name__)
 
-def get_or_create_dev_user(db: Session) -> str:
+DEFAULT_PLATFORM = "ios"
+# Valid city codes — must match the city_code ENUM in schema.sql
+VALID_CITIES = {"OPO", "LIS", "OEI"}
+
+def _resolve_city(payload: dict[str, Any]) -> str:
+    """
+    Extracts and validates the city from the payload.
+    Raises ValueError if missing or not in VALID_CITIES.
+    FastAPI will surface this as a 422 before it reaches the DB.
+    """
+    city = payload.get("city")
+    if not city:
+        raise ValueError(
+            "Missing 'city' in payload. "
+            f"Expected one of: {sorted(VALID_CITIES)}"
+        )
+    city = str(city).strip().upper()
+    if city not in VALID_CITIES:
+        raise ValueError(
+            f"Unknown city '{city}'. "
+            f"Expected one of: {sorted(VALID_CITIES)}"
+        )
+    return city
+
+def get_or_create_dev_user(db: Session, city: str) -> str:
+    # Try to find existing user first
     user_id = db.execute(
         text(
             """
@@ -27,7 +52,7 @@ def get_or_create_dev_user(db: Session) -> str:
             """
         ),
         {
-            "city": DEFAULT_CITY,
+            "city": city,
             "platform": DEFAULT_PLATFORM,
         },
     ).scalar()
@@ -35,6 +60,7 @@ def get_or_create_dev_user(db: Session) -> str:
     if user_id is not None:
         return str(user_id)
 
+    # No user found 
     user_id = db.execute(
         text(
             """
@@ -50,11 +76,13 @@ def get_or_create_dev_user(db: Session) -> str:
                 NOW(),
                 :consent_version
             )
+            ON CONFLICT (city, device_platform) DO UPDATE
+                SET updated_at = NOW()
             RETURNING id
             """
         ),
         {
-            "city": DEFAULT_CITY,
+            "city": city,
             "platform": DEFAULT_PLATFORM,
             "consent_version": "dev-v1",
         },
@@ -64,7 +92,7 @@ def get_or_create_dev_user(db: Session) -> str:
     return str(user_id)
 
 
-def create_parking_session(db: Session, payload: dict[str, Any], user_id: str) -> str:
+def create_parking_session(db: Session, payload: dict[str, Any], user_id: str, city: str) -> str:
     latitude = payload.get("latitude")
     longitude = payload.get("longitude")
     gnss_accuracy = payload.get("gnss_accuracy_m") or payload.get("gnss_accuracy_mean")
@@ -84,7 +112,7 @@ def create_parking_session(db: Session, payload: dict[str, Any], user_id: str) -
                 )
                 VALUES (
                     :user_id,
-                    :city,
+                    CAST(:city AS city_code),
                     'detecting',
                     ST_SetSRID(
                         ST_MakePoint(:longitude, :latitude),
@@ -99,7 +127,7 @@ def create_parking_session(db: Session, payload: dict[str, Any], user_id: str) -
             ),
             {
                 "user_id": user_id,
-                "city": DEFAULT_CITY,
+                "city": city,
                 "longitude": longitude,
                 "latitude": latitude,
                 "location_accuracy_m": gnss_accuracy,
@@ -121,7 +149,7 @@ def create_parking_session(db: Session, payload: dict[str, Any], user_id: str) -
                 )
                 VALUES (
                     :user_id,
-                    :city,
+                    CAST(:city AS city_code),
                     'detecting',
                     :location_accuracy_m,
                     :device_os_version,
@@ -132,7 +160,7 @@ def create_parking_session(db: Session, payload: dict[str, Any], user_id: str) -
             ),
             {
                 "user_id": user_id,
-                "city": DEFAULT_CITY,
+                "city": city,
                 "location_accuracy_m": gnss_accuracy,
                 "device_os_version": payload.get("device_os_version"),
                 "app_version": payload.get("app_version"),
@@ -149,10 +177,14 @@ def create_sensor_payload(
 ) -> str:
     duration = float(payload.get("window_duration_s", 10.0))
 
-    window_end = datetime.now(timezone.utc)
-    window_start = window_end - timedelta(seconds=duration)
-
-    gnss_lost_ratio = float(payload.get("gnss_lost_ratio", 0.0))
+    if payload.get("window_end_at"):
+        window_end   = datetime.fromisoformat(str(payload["window_end_at"]).replace("Z", "+00:00"))
+        window_start = datetime.fromisoformat(str(payload["window_start_at"]).replace("Z", "+00:00")) \
+                       if payload.get("window_start_at") \
+                       else window_end - timedelta(seconds=duration)
+    else:
+        window_end   = datetime.now(timezone.utc)
+        window_start = window_end - timedelta(seconds=duration)
 
     payload_id = db.execute(
         text(
@@ -174,7 +206,6 @@ def create_sensor_payload(
 
                 gnss_accuracy_m,
                 gnss_accuracy_delta,
-                gnss_lost_ratio,
 
                 raw_payload
             )
@@ -195,7 +226,6 @@ def create_sensor_payload(
 
                 :gnss_accuracy_m,
                 :gnss_accuracy_delta,
-                :gnss_lost_ratio,
 
                 CAST(:raw_payload AS jsonb)
             )
@@ -219,7 +249,6 @@ def create_sensor_payload(
             
             "gnss_accuracy_m": payload.get("gnss_accuracy_m") or payload.get("gnss_accuracy_mean"),
             "gnss_accuracy_delta": payload.get("gnss_accuracy_delta"),
-            "gnss_lost_ratio": gnss_lost_ratio,
             "raw_payload": json.dumps(payload),
         },
     ).scalar_one()
@@ -310,8 +339,9 @@ def analyze_and_store_parking_event(
     payload: dict[str, Any],
 ) -> dict[str, Any]:
     try:
-        user_id = get_or_create_dev_user(db)
-        session_id = create_parking_session(db, payload, user_id)
+        city = _resolve_city(payload)
+        user_id = get_or_create_dev_user(db, city)
+        session_id = create_parking_session(db, payload, user_id, city)
         payload_id = create_sensor_payload(db, session_id, payload)
 
         ml1_prediction = predict_vertical_context(payload)
@@ -321,13 +351,32 @@ def analyze_and_store_parking_event(
             db=db, 
             latitude=payload.get("latitude"), 
             longitude=payload.get("longitude"),
-            city=payload.get("city"),
+            city=city,
         )
+
+        if spatial["in_paid_zone"] is None:
+            log.warning(
+                "Spatial lookup returned None for session %s (reason: %s). "
+                "Aborting pipeline — no_charge.",
+                session_id, spatial.get("reason"),
+            )
+            update_session_status(db, session_id, "no_charge")
+            db.commit()
+            return {
+                "session_id":                session_id,
+                "payload_id":                payload_id,
+                "inference_id":              None,
+                "ml1_classification":        ml1_prediction["classification"],
+                "ml1_non_street_confidence": ml1_conf,
+                "spatial_abort_reason":      spatial.get("reason"),
+                "final_decision":            "no_charge",
+                "confidence_to_charge":      0.0,
+            }
 
         ml2_prediction = predict_final_decision(
             ml1_confidence=ml1_conf,
             gnss_accuracy_m=payload.get("gnss_accuracy_m", 10.0),
-            distance_to_zone_m=spatial["distance_to_zone_m"]
+            distance_to_zone_m=float(spatial["distance_to_zone_m"])
         )
 
         inference_id = create_inference_log(
@@ -339,6 +388,8 @@ def analyze_and_store_parking_event(
             ml2_prediction=ml2_prediction
         )
 
+        update_session_status(db, session_id, ml2_prediction["final_decision"])
+
         db.commit()
 
         return {
@@ -347,11 +398,44 @@ def analyze_and_store_parking_event(
             "inference_id": inference_id,
             "ml1_classification": ml1_prediction["classification"],
             "ml1_non_street_confidence": ml1_prediction["non_street_confidence"],
-            "distance_to_zone_m": spatial["distance_to_zone_m"],
+            "distance_to_zone_m": float(spatial["distance_to_zone_m"]),
             "final_decision": ml2_prediction["final_decision"],
             "confidence_to_charge": ml2_prediction["ml2_charge_confidence"]
         }
+    
+    except ValueError as exc:
+        log.warning("Payload validation error: %s", exc)
+        raise
 
     except Exception:
         db.rollback()
+        log.exception("Parking event analysis failed.")
         raise
+
+def update_session_status(
+    db: Session,
+    session_id: str,
+    final_decision: str,
+) -> None:
+    """
+    Updates the session status after the pipeline completes.
+
+    'charge'    → 'pending_confirm'  (push will be sent)
+    'no_charge' → 'auto_aborted'     (pipeline aborted before push)
+
+    Without this update, the dashboard shows all sessions as 'detecting'
+    forever — making it impossible to filter active from completed sessions.
+    """
+    new_status = (
+        "pending_confirm" if final_decision == "charge" else "auto_aborted"
+    )
+    db.execute(
+        text("""
+            UPDATE parking_sessions
+            SET status     = CAST(:status AS session_status),
+                updated_at = NOW()
+            WHERE id = :session_id
+        """),
+        {"status": new_status, "session_id": session_id},
+    )
+    db.flush()

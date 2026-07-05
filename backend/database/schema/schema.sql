@@ -18,7 +18,8 @@ CREATE TYPE session_status AS ENUM (
     'detecting',          -- 10-second window in progress (!!! to decide that timeframe, how that will work !!!)
     'pending_confirm',    -- push sent
     'confirmed',          -- user confirmed (positive label)
-    'cancelled'          -- user cancelled (negative label)
+    'cancelled',          -- user cancelled (negative label)
+    'auto_aborted'        -- pipeline aborted before push
 );
 
 CREATE TYPE model_decision AS ENUM (
@@ -28,7 +29,8 @@ CREATE TYPE model_decision AS ENUM (
 
 CREATE TYPE city_code AS ENUM (
     'OPO',                -- Porto
-    'LIS'                 -- Lisbon
+    'LIS',                -- Lisbon
+    'OEI'                 -- Oeiras
 );
 
 --============================================================
@@ -44,7 +46,8 @@ CREATE TABLE users (
     rgpd_consent_version TEXT,                         -- consent text version
     is_active           BOOLEAN NOT NULL DEFAULT TRUE,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (city, device_platform)
 );
 
 --============================================================

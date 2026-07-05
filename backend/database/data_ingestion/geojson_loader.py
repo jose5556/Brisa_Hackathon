@@ -5,10 +5,12 @@ from sqlalchemy import create_engine, text
 DATABASE_URL = "postgresql://parking_user:parking_password@localhost:5432/parking_db"
 engine = create_engine(DATABASE_URL)
 
-geojson_path = "../maps/OPO_paidzones.geojson"
+# Path from data_ingestion/ → ../maps/
+geojson_path = os.path.join(os.path.dirname(__file__), "..", "maps", "OPO_paidzones.geojson")
 
 if not os.path.exists(geojson_path):
     print(f"Error: The file was not found at {geojson_path}")
+    print(f"Tried: {os.path.abspath(geojson_path)}")
     exit()
 
 # Read the city road segments GeoJSON file
