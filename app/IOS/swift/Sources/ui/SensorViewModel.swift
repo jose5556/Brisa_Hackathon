@@ -11,6 +11,8 @@ import Combine
 final class SensorViewModel: ObservableObject {
 
     @Published var uploadResult: UploadResult = .idle
+    // Estado do feedback do utilizador sobre a decisão da última análise.
+    @Published var feedbackState: FeedbackState = .idle
     @Published var lastPayload: SensorPayload? = nil
     @Published var lastWindow: SensorWindow? = nil
     // Resultado do scoring da última análise — baseline (tick de maior score) + série por tick.
@@ -128,6 +130,29 @@ final class SensorViewModel: ObservableObject {
 
     func resetResult() {
         uploadResult = .idle
+        feedbackState = .idle
+    }
+
+    // ── Feedback do utilizador ────────────────────────
+    // Envia para /feedback o veredicto (correto/incorreto) sobre a decisão de
+    // cobrança da última análise bem-sucedida.
+    func sendFeedback(_ verdict: FeedbackVerdict) {
+        guard case .success(let response) = uploadResult else { return }
+        guard feedbackState != .sending else { return }
+        feedbackState = .sending
+
+        Task {
+            do {
+                try await repository.sendFeedback(
+                    payloadId: response.payloadId,
+                    sessionId: response.sessionId,
+                    feedback: verdict
+                )
+                feedbackState = .sent(verdict)
+            } catch {
+                feedbackState = .error(message: error.localizedDescription)
+            }
+        }
     }
 
     // ── Recolha de dados (tela DATA) ──────────────────
@@ -186,6 +211,7 @@ final class SensorViewModel: ObservableObject {
     // ── Pipeline comum: payload + envio ───────────────
     private func process(window: SensorWindow) async {
         lastWindow = window
+        feedbackState = .idle   // nova análise → limpa feedback anterior
 
         print("[SensorViewModel] Janela obtida — " +
               "GPS=\(window.gpsReadings.count) " +

@@ -6,6 +6,7 @@ struct SensorPayload: Codable {
     // Coordenadas do estacionamento
     let latitude: Double           // latitude onde o veículo parou
     let longitude: Double          // longitude onde o veículo parou
+    var city: String?              // nome da cidade (reverse geocoding da última leitura GPS)
 
     // GPS / GNSS
     let gpsAccuracyMean: Double    // precisão média do GPS durante a janela (metros — menor = melhor)
@@ -31,6 +32,7 @@ struct SensorPayload: Codable {
     enum CodingKeys: String, CodingKey {
         case latitude
         case longitude
+        case city
 
         case gpsAccuracyMean            = "gnss_accuracy_mean"
         case gpsAccuracyDelta           = "gnss_accuracy_delta"
@@ -222,6 +224,7 @@ extension SensorWindow {
         return SensorPayload(
             latitude:              lastGps.latitude,
             longitude:             lastGps.longitude,
+            city:                  nil,   // preenchido depois via reverse geocoding em buildPayload
             gpsAccuracyMean:       gpsAccuracyMean,
             gpsAccuracyDelta:      gpsAccuracyDelta,
             gpsLostRatio:          gpsLostRatio,

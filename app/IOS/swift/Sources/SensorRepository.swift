@@ -1,4 +1,5 @@
 import Foundation
+import CoreLocation
 
 // ── SensorRepository ──────────────────────────────────
 // Orquestra o fluxo completo:
@@ -22,13 +23,20 @@ final class SensorRepository {
         }
 
         // ── 2. Calcula features + constrói payload ───────
-        guard let payload = window.toPayload() else {
+        guard var payload = window.toPayload() else {
             throw SensorRepositoryError.insufficientData
         }
+
+        // ── 3. Reverse geocoding da última leitura GPS ───
+        // Best-effort: se falhar (sem rede, sem resultado), city fica nil
+        // e o envio prossegue na mesma.
+        payload.city = await Self.resolveCity(latitude: lastGps.latitude,
+                                              longitude: lastGps.longitude)
 
         #if DEBUG
         print("[SensorRepository] Payload pronto — \(payload.windowDurationS)s de janela")
         print("  lat: \(payload.latitude), lon: \(payload.longitude)")
+        print("  city: \(payload.city ?? "—")")
         print("  pressureHpa: \(payload.pressureHpa) hPa")
         print("  pressureDeltaHpa: \(payload.pressureDeltaHpa) hPa")
         #endif
@@ -36,10 +44,44 @@ final class SensorRepository {
         return payload
     }
 
+    // ── resolveCity ───────────────────────────────────────
+    // Converte coordenadas em nome de cidade via CLGeocoder (reverse geocoding).
+    // Assíncrono e depende de rede — por isso é chamado uma única vez, antes do envio.
+    private static func resolveCity(latitude: Double, longitude: Double) async -> String? {
+        let location = CLLocation(latitude: latitude, longitude: longitude)
+        do {
+            let placemarks = try await CLGeocoder().reverseGeocodeLocation(location)
+            // locality = cidade; fallbacks para não devolver nil desnecessariamente.
+            return placemarks.first?.locality
+                ?? placemarks.first?.subAdministrativeArea
+                ?? placemarks.first?.administrativeArea
+        } catch {
+            #if DEBUG
+            print("[SensorRepository] reverse geocoding falhou: \(error.localizedDescription)")
+            #endif
+            return nil
+        }
+    }
+
     // ── send ──────────────────────────────────────────────
     // Passo 4: envia um payload já construído para a API de classificação.
     func send(payload: SensorPayload) async throws -> PredictionResponse {
         return try await SensorApiClient.shared.predictVerticalContext(payload: payload)
+    }
+
+    // ── sendFeedback ──────────────────────────────────────
+    // Passo 5 (opcional): reencaminha o veredicto do utilizador sobre a decisão
+    // de cobrança para a API de feedback.
+    func sendFeedback(
+        payloadId: String,
+        sessionId: String,
+        feedback: FeedbackVerdict
+    ) async throws {
+        try await SensorApiClient.shared.sendFeedback(
+            payloadId: payloadId,
+            sessionId: sessionId,
+            feedback: feedback
+        )
     }
 }
 
