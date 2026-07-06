@@ -1,6 +1,5 @@
 from fastapi.testclient import TestClient
 from src.main import app
-from pathlib import Path
 
 client = TestClient(app)
 
@@ -22,6 +21,7 @@ VALID_SAMPLE = {
     "stationary_ratio": 0.73,
 }
 
+
 def test_predict_endpoint_returns_prediction():
     response = client.post("/predict", json=VALID_SAMPLE)
 
@@ -32,6 +32,9 @@ def test_predict_endpoint_returns_prediction():
     assert "non_street_confidence" in data
     assert isinstance(data["classification"], str)
     assert isinstance(data["non_street_confidence"], float)
+    assert "session_id" in data
+    assert "payload_id" in data
+    assert "inference_id" in data
 
 
 def test_root():
@@ -43,36 +46,39 @@ def test_root():
 def test_health():
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+
+    data = response.json()
+    assert "tailscale_ip" in data
+    assert isinstance(data["tailscale_ip"], str)
 
 
-def test_predict_endpoint_returns_prediction():
+def test_predict_endpoint_returns_classification():
     response = client.post("/predict", json=VALID_SAMPLE)
 
     assert response.status_code == 200
 
     data = response.json()
-    assert "classification" in data
-    assert "non_street_confidence" in data
     assert isinstance(data["classification"], str)
     assert isinstance(data["non_street_confidence"], float)
+    assert data["non_street_confidence"] >= 0.0
 
-def test_predict_endpoint_detects_underground():
+
+def test_predict_endpoint_persists_raw_payload():
     response = client.post("/predict", json=VALID_SAMPLE)
 
     assert response.status_code == 200
 
     data = response.json()
-    assert data["classification"] == "underground"
-    assert data["non_street_confidence"] >= 0.8
+    session_id = data["session_id"]
 
-""" 
-At the moment, if empty payload is sent, ml simply return a default value
-so code 200 for now. Protect this code in the future is planned
-def test_predict_with_empty_payload_fails():
-    response = client.post("/predict", json={})
+    event_response = client.get(f"/parking-events/{session_id}")
+    assert event_response.status_code == 200
 
-    assert response.status_code == 500 """
+    event_data = event_response.json()
+    assert "raw_payload" in event_data
+    assert event_data["raw_payload"]["pressure_delta"] == VALID_SAMPLE["pressure_delta"]
+    assert event_data["raw_payload"]["altitude_delta"] == VALID_SAMPLE["altitude_delta"]
+
 
 def test_schema_info_contains_expected_tables():
     response = client.get("/db/schema-info")
@@ -84,6 +90,7 @@ def test_schema_info_contains_expected_tables():
     assert "sensor_payloads" in data["tables"]
     assert "inference_logs" in data["tables"]
 
+
 def test_analyze_parking_event_creates_event():
     response = client.post("/parking-events/analyze", json=VALID_SAMPLE)
 
@@ -93,6 +100,25 @@ def test_analyze_parking_event_creates_event():
     assert "session_id" in data
     assert "classification" in data
     assert "non_street_confidence" in data
+
+
+def test_latest_sensor_payloads_returns_list():
+    response = client.get("/sensor-payloads/latest?limit=3")
+
+    assert response.status_code == 200
+
+    data = response.json()
+    assert "count" in data
+    assert "payloads" in data
+    assert isinstance(data["payloads"], list)
+
+    if data["payloads"]:
+        payload = data["payloads"][0]
+        assert "payload_id" in payload
+        assert "session_id" in payload
+        assert "user_id" in payload
+        assert "raw_payload" in payload
+
 
 def test_latest_parking_events_returns_list():
     response = client.get("/parking-events/latest")

@@ -426,7 +426,7 @@ def verify_predict_interface(artifact_path: Path):
 
     non_street_confidence = round(underground_score + above_score, 4)
     classification = max(probabilities_by_class, key=probabilities_by_class.get)
-    decision = "Charge" if non_street_confidence < threshold else "Don't charge"
+    decision = "charge" if non_street_confidence < threshold else "no_charge"
 
     print(f"  Mock payload (should be → underground):")
     print(f"    probabilities      : {probabilities_by_class}")

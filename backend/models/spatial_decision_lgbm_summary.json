@@ -1,0 +1,40 @@
+{
+  "model_name": "spatial_classifier",
+  "version_tag": "v1.0.0-lgbm",
+  "artifact_path": "/home/bruno/Desktop/SEA_ME/BRISA/Brisa_Hackathon/backend/models/spatial_decision_lgbm.joblib",
+  "feature_names": [
+    "ml1_non_street_confidence",
+    "distance_to_zone_m",
+    "gnss_accuracy_m",
+    "gnss_lost_ratio"
+  ],
+  "classes": [
+    "no_charge",
+    "charge"
+  ],
+  "charge_threshold": 0.0001606884644023251,
+  "val_f1_score": 0.9983,
+  "val_roc_auc": 1.0,
+  "val_samples": 1000,
+  "train_samples": 4000,
+  "lgbm_params": {
+    "objective": "binary",
+    "metric": "binary_logloss",
+    "boosting_type": "gbdt",
+    "num_leaves": 31,
+    "max_depth": -1,
+    "learning_rate": 0.05,
+    "n_estimators": 1000,
+    "subsample": 0.8,
+    "subsample_freq": 1,
+    "colsample_bytree": 0.8,
+    "min_child_samples": 10,
+    "reg_alpha": 0.1,
+    "reg_lambda": 1.0,
+    "class_weight": "balanced",
+    "random_state": 42,
+    "n_jobs": -1,
+    "verbose": -1
+  },
+  "data_source": "synthetic"
+}

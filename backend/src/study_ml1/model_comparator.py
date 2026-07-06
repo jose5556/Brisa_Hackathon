@@ -110,7 +110,7 @@ def run_model_comparison():
     # =====================================================================
     models_analysis = {
         'Random Forest': RandomForestClassifier(n_estimators=100, random_state=42),
-        'XGBoost': XGBClassifier(random_state=42, use_label_encoder=False, eval_metric='mlogloss')
+        'LightGBM': LGBMClassifier(random_state=42)
     }
 
     for nome, model in models_analysis.items():
