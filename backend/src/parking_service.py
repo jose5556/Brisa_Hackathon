@@ -15,7 +15,7 @@ log = logging.getLogger(__name__)
 
 DEFAULT_PLATFORM = "ios"
 # Valid city codes — must match the city_code ENUM in schema.sql
-VALID_CITIES = {"OPO", "LIS", "OEI"}
+VALID_CITIES = {"Porto", "Lisboa", "Oeiras", "Espinho"}
 
 def _resolve_city(payload: dict[str, Any]) -> str:
     """
