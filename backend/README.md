@@ -111,7 +111,7 @@ Example for street level, **without charge**:
 curl -X POST "http://100.121.113.91:8000/parking-events/analyze" \
      -H "Content-Type: application/json" \
      -d '{
-       "city":"OPO",
+       "city":"Espinho",
        "latitude": 41.1579,
        "longitude": -8.6291,
        "gps_accuracy_mean": 5.2,
@@ -136,7 +136,7 @@ Example for street level, **charge**:
 curl -X POST "http://100.121.113.91:8000/parking-events/analyze" \
      -H "Content-Type: application/json" \
      -d '{
-       "city":"OPO",
+       "city":"Porto",
        "latitude": 41.14723,
        "longitude": -8.58906,
        "gps_accuracy_mean": 5.2,
@@ -162,7 +162,7 @@ Example for underground:
 curl -X POST "http://100.121.113.91:8000/parking-events/analyze" \
      -H "Content-Type: application/json" \
      -d '{
-       "city":"OPO",
+       "city":"Oeiras",
        "latitude": 41.1579,
        "longitude": -8.6291,
        "gnss_accuracy_mean": 85.0,
