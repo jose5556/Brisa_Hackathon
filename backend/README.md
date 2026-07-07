@@ -132,6 +132,7 @@ curl -X POST "http://100.121.113.91:8000/parking-events/analyze" \
 ```
 
 Example for street level, **charge**:
+```bash
 curl -X POST "http://100.121.113.91:8000/parking-events/analyze" \
      -H "Content-Type: application/json" \
      -d '{
@@ -153,6 +154,7 @@ curl -X POST "http://100.121.113.91:8000/parking-events/analyze" \
        "gnss_accuracy_m": 5.2,
        "gnss_accuracy_delta": 0.5
      }'
+```
 
 Example for underground:
 
