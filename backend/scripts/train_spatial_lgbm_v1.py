@@ -87,7 +87,7 @@ DEFAULT_OUT   = MODEL_DIR / "spatial_decision_lgbm.joblib"
 
 # ── Feature columns ────────────────────────────────────────────────────────────
 # These must match the keys sent by spatial_ml_predict.py.
-# When new sensors are added (magnetometer, kinematics), extend here AND
+# When new sensors are added, extend here AND
 # retrain — the bundle stores feature_names so old models stay compatible.
 FEATURE_COLS = [
     "ml1_non_street_confidence",  # P(underground) + P(above) from Model 1
