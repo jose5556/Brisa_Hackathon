@@ -29,7 +29,6 @@ def _resolve_city(payload: dict[str, Any]) -> str:
             "Missing 'city' in payload. "
             f"Expected one of: {sorted(VALID_CITIES)}"
         )
-    city = str(city).strip()
     if city not in VALID_CITIES:
         raise ValueError(
             f"Unknown city '{city}'. "

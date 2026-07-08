@@ -29,8 +29,6 @@ def get_spatial_context(
     if not city:
         log.warning("get_spatial_context called without city — returning no-zone result.")
         return _no_zone_result(reason="missing_city")
-
-    city = city.strip().upper()
     
     if not (-90 <= latitude <= 90) or not (-180 <= longitude <= 180):
         log.warning(
