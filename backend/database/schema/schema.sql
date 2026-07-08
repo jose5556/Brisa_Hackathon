@@ -30,7 +30,11 @@ CREATE TYPE model_decision AS ENUM (
 CREATE TYPE city_code AS TEXT (
     'Porto',
     'Lisboa',
-    'Oeiras'
+    'Oeiras',
+    'Epinho',
+    'Vila nova de Gaia',
+    'Matosinhos',
+    'Maia'
 );
 
 --============================================================
