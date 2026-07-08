@@ -213,7 +213,7 @@ struct ContentView: View {
                     .foregroundColor(.white.opacity(0.7))
                     .kerning(2)
             }
-            .padding(.vertical, 28)
+            .padding(.vertical, 16)
 
             // Botões DEV e DATA no canto superior direito
             VStack {

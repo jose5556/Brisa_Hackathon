@@ -19,7 +19,8 @@ struct SensorLogsView: View {
 
                     // ── Secção: Score ─────────────────
                     if let score = viewModel.lastScore {
-                        let start    = score.bestTimestampMs
+                        let peak     = score.bestTimestampMs             // tick de maior score (destaque)
+                        let start    = score.windowStartMs               // baseline: início real da janela
                         let allTicks = score.ticks
                         let refMs    = allTicks.last?.timestampMs ?? 0    // t0 = leitura mais recente (botão)
                         let durationS: Double = {
@@ -52,7 +53,7 @@ struct SensorLogsView: View {
                                     DataRow(key: "—", value: "sem leituras")
                                 } else {
                                     ForEach(Array(allTicks.enumerated()).reversed(), id: \.offset) { _, tick in
-                                        ScoreTickRow(tick: tick, refMs: refMs, isBest: tick.timestampMs == start)
+                                        ScoreTickRow(tick: tick, refMs: refMs, isBest: tick.timestampMs == peak)
                                     }
                                 }
                             }

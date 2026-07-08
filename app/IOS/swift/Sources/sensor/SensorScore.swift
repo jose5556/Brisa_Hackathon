@@ -6,9 +6,11 @@ import Foundation
 // A pressão contribui de forma opcional (0 se o barómetro não tiver leituras),
 // para não anular o tick em dispositivos sem barómetro.
 //
-// O tick de score mais alto marca o INÍCIO da janela de captura: é o momento,
-// ainda em rua válida, em que os sensores mais variaram. A janela vai daí até
-// ao instante do "Analisar" (última leitura do buffer).
+// O tick de score mais alto marca o PICO da variação: é o momento, ainda em
+// rua válida, em que os sensores mais variaram face a ~10 s antes. Mas a variação
+// COMEÇOU nesse tick de ~10 s antes (o baseline que foi comparado com o pico), e é
+// esse o INÍCIO da janela de captura. A janela vai do baseline até ao instante do
+// "Analisar" (última leitura do buffer).
 //
 // Passos (alinhados com a especificação):
 //   1. Δ de cada sensor vs leitura de ~5 s atrás (rateMs).
@@ -18,7 +20,7 @@ import Foundation
 //   5. Peso de cada sensor (1× para já).
 //   6. Somar as 3 contribuições → score bruto do tick.
 //   7. EMA: suaviza com o tick anterior (α = 0.5 → (raw + anterior) / 2).
-//   8. (no ViewModel) o tick de maior score vira o início da janela.
+//   8. (no ViewModel) o baseline do tick de maior score (~10 s antes) vira o início da janela.
 
 struct ScoredTick {
     let timestampMs: Int64
@@ -41,7 +43,8 @@ struct ScoredTick {
 }
 
 struct WindowScore {
-    let bestTimestampMs: Int64?    // início da janela (tick de maior score), nil se nenhum válido
+    let bestTimestampMs: Int64?    // pico da variação (tick de maior score), nil se nenhum válido
+    let windowStartMs: Int64?      // início da janela: baseline comparado com o pico (~rateMs antes)
     let bestScore: Double
     let ticks: [ScoredTick]        // série completa, para logging/calibração
 }
@@ -65,7 +68,7 @@ extension SensorWindow {
     /// A grelha de ticks são as leituras GPS (~1 Hz), que já trazem velocidade e sinal.
     func computeScore(params: ScoreParams = .init()) -> WindowScore {
         guard !gpsReadings.isEmpty else {
-            return WindowScore(bestTimestampMs: nil, bestScore: 0, ticks: [])
+            return WindowScore(bestTimestampMs: nil, windowStartMs: nil, bestScore: 0, ticks: [])
         }
 
         // ── Passo 1: Δ bruto de cada sensor por leitura ──────
@@ -148,14 +151,20 @@ extension SensorWindow {
                 rawScore: rawScore, score: ema
             ))
 
-            // O início da janela tem de ser um tick de rua válida.
+            // O pico da variação tem de ser um tick de rua válida.
             if r.gated, ema > bestScore {
                 bestScore = ema
                 bestTs = r.t
             }
         }
 
-        return WindowScore(bestTimestampMs: bestTs, bestScore: bestScore, ticks: ticks)
+        // A janela começa no baseline que foi comparado com o pico: ~rateMs antes.
+        // É aí que a variação começou (o tick ainda "em rua" antes da transição).
+        // Se não houver rateMs de histórico antes do pico, o baseline foi na prática
+        // a leitura mais antiga do buffer — fixamos aí para não apontar para antes dos dados.
+        let earliestTs = gpsReadings.first?.timestampMs
+        let windowStart = bestTs.map { max($0 - params.rateMs, earliestTs ?? $0) }
+        return WindowScore(bestTimestampMs: bestTs, windowStartMs: windowStart, bestScore: bestScore, ticks: ticks)
     }
 
     /// Recorta o buffer a partir de `fromMs` (inclusive) — usado para a janela [pico → agora].
