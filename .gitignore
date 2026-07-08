@@ -10,3 +10,8 @@ backend/.env
 
 # Scripts locais
 sync_to_mac.sh
+
+.DS_Store
+	backend/.DS_Store
+	backend/database/.DS_Store
+	backend/database/maps/.DS_Store

@@ -28,9 +28,9 @@ CREATE TYPE model_decision AS ENUM (
 );
 
 CREATE TYPE city_code AS ENUM (
-    'OPO',                -- Porto
-    'LIS',                -- Lisbon
-    'OEI'                 -- Oeiras
+    'Porto',
+    'Lisboa',
+    'Oeiras'
 );
 
 --============================================================

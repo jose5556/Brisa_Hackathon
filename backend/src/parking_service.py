@@ -15,7 +15,7 @@ log = logging.getLogger(__name__)
 
 DEFAULT_PLATFORM = "ios"
 # Valid city codes — must match the city_code ENUM in schema.sql
-VALID_CITIES = {"OPO", "LIS", "OEI"}
+VALID_CITIES = {"Porto", "Lisboa", "Oeiras", "Espinho"}
 
 def _resolve_city(payload: dict[str, Any]) -> str:
     """
@@ -29,7 +29,7 @@ def _resolve_city(payload: dict[str, Any]) -> str:
             "Missing 'city' in payload. "
             f"Expected one of: {sorted(VALID_CITIES)}"
         )
-    city = str(city).strip().upper()
+    city = str(city).strip()
     if city not in VALID_CITIES:
         raise ValueError(
             f"Unknown city '{city}'. "
