@@ -49,12 +49,13 @@ enum SensorApiError: Error, LocalizedError {
 struct PredictionResponse: Decodable, Equatable {
     let sessionId: String
     let payloadId: String
-    let inferenceId: String
+    let inferenceId: String?
     let ml1Classification: String
     let ml1NonStreetConfidence: Double
-    let distanceToZoneM: Double
+    let distanceToZoneM: Double?
     let finalDecision: String
     let confidenceToCharge: Double
+    let spatialAbortReason: String?
 
     enum CodingKeys: String, CodingKey {
         case sessionId              = "session_id"
@@ -65,6 +66,7 @@ struct PredictionResponse: Decodable, Equatable {
         case distanceToZoneM        = "distance_to_zone_m"
         case finalDecision          = "final_decision"
         case confidenceToCharge     = "confidence_to_charge"
+        case spatialAbortReason     = "spatial_abort_reason"
     }
 }
 

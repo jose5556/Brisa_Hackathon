@@ -152,10 +152,10 @@ struct SensorLogsView: View {
                                 DataRow(key: "ml1_classification",       value: response.ml1Classification)
                                 DataRow(key: "ml1_non_street_confidence", value: String(format: "%.4f", response.ml1NonStreetConfidence))
                                 DataRow(key: "confidence_to_charge",     value: String(format: "%.4f", response.confidenceToCharge))
-                                DataRow(key: "distance_to_zone_m",       value: String(format: "%.1f", response.distanceToZoneM))
+                                DataRow(key: "distance_to_zone_m",       value: response.distanceToZoneM.map { String(format: "%.1f", $0) } ?? "—")
                                 DataRow(key: "session_id",               value: response.sessionId)
                                 DataRow(key: "payload_id",               value: response.payloadId)
-                                DataRow(key: "inference_id",             value: response.inferenceId)
+                                DataRow(key: "inference_id",             value: response.inferenceId ?? "—")
 
                                 // Barra de confiança (não-rua)
                                 HStack(spacing: 8) {
