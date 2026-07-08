@@ -20,6 +20,7 @@ DOCKER_COMPOSE := docker compose -f $(COMPOSE_FILE)
 .PHONY: \
 	help \
 	venv \
+	activate \
 	install \
 	data \
 	train \
@@ -39,6 +40,7 @@ DOCKER_COMPOSE := docker compose -f $(COMPOSE_FILE)
 help:
 	@echo "Available targets:"
 	@echo "  make venv        - create the backend virtual environment"
+	@echo "  make activate    - open a shell with the virtual environment activated"
 	@echo "  make install     - install Python dependencies"
 	@echo "  make data        - generate synthetic training data"
 	@echo "  make train       - train the ML model"
@@ -98,26 +100,10 @@ up:
 down:
 	$(DOCKER_COMPOSE) down -v
 
-db-init:
-	@test -s "$(SCHEMA_FILE)"
-	cat "$(SCHEMA_FILE)" | $(DOCKER_COMPOSE) exec -T db \
-		psql -v ON_ERROR_STOP=1 \
-		-U parking_user \
-		-d parking_db
-
-# some update broke this, needs to be fixed :(
 db-reset:
 	$(DOCKER_COMPOSE) down -v
 	$(DOCKER_COMPOSE) up -d
-	@until $(DOCKER_COMPOSE) exec -T db \
-		pg_isready -U parking_user -d parking_db >/dev/null 2>&1; do \
-		sleep 1; \
-	done
-	@test -s "$(SCHEMA_FILE)"
-	cat "$(SCHEMA_FILE)" | $(DOCKER_COMPOSE) exec -T db \
-		psql -v ON_ERROR_STOP=1 \
-		-U parking_user \
-		-d parking_db
+	@until $(DOCKER_COMPOSE) exec -T db pg_isready -U parking_user -d parking_db >/dev/null 2>&1; do sleep 1; done
 
 db-shell:
 	$(DOCKER_COMPOSE) exec db psql -U parking_user -d parking_db

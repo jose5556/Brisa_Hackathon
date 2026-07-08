@@ -19,9 +19,6 @@ Design principles
     * Magnetometer: underground environments have severe ferromagnetic interference
       from rebar, metro rails, pipes; above-ground garages have moderate steel
       structure interference; streets are baseline urban.
-    * GNSS: underground = total loss (gnss_lost_ratio → 1.0, accuracy collapses
-      to last-fix degraded value); above-ground multi-storey = partial occlusion;
-      street = variable urban canyon effect.
 - Real failure modes are injected:
     * Barometer drift (sensor warm-up)
     * GNSS multipath in dense urban canyons (Baixa do Porto, Av. Aliados)
@@ -184,7 +181,7 @@ def make_underground(city: str) -> dict:
       is typically -6% grade → ~1.5 m depth per 25 m horizontal → ~0.18 hPa/s)
     - Magnetometer: extreme variance and high mean due to rebar grid, steel I-beams,
       drainage pipes, metal doors, vehicles — highly ferromagnetic environment
-    - GNSS: total or near-total loss. gnss_lost_ratio → 0.85–1.0.
+    - GNSS: total or near-total loss.
       gnss_accuracy degrades to last-fix coasting (25–200 m).
     - Altitude change: negative (descended)
     """
