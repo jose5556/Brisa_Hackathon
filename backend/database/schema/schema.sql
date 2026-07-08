@@ -31,7 +31,7 @@ CREATE TYPE city_code AS TEXT (
     'Porto',
     'Lisboa',
     'Oeiras',
-    'Epinho',
+    'Espinho',
     'Vila nova de Gaia',
     'Matosinhos',
     'Maia'
