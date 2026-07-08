@@ -452,3 +452,121 @@ def update_session_status(
         {"status": new_status, "session_id": session_id},
     )
     db.flush()
+
+
+def store_user_feedback(
+    db: Session,
+    session_id: str,
+    payload_id: str,
+    feedback: str,
+) -> dict[str, Any]:
+    """
+    Persiste feedback de utilizador sobre a decisao final do pipeline.
+
+    feedback:
+      - "correct"   -> o utilizador concorda com a decisao
+      - "incorrect" -> o utilizador discorda da decisao
+    """
+    normalized_feedback = str(feedback).strip().lower()
+    if normalized_feedback not in {"correct", "incorrect"}:
+        raise ValueError("Invalid feedback. Expected 'correct' or 'incorrect'.")
+
+    relation_exists = db.execute(
+        text(
+            """
+            SELECT 1
+            FROM sensor_payloads
+            WHERE id = :payload_id
+              AND session_id = :session_id
+            LIMIT 1
+            """
+        ),
+        {
+            "payload_id": payload_id,
+            "session_id": session_id,
+        },
+    ).scalar()
+
+    if relation_exists is None:
+        raise ValueError("Payload/session relation not found.")
+
+    inference_id = db.execute(
+        text(
+            """
+            SELECT id::text
+            FROM inference_logs
+            WHERE session_id = :session_id
+              AND payload_id = :payload_id
+            ORDER BY id DESC
+            LIMIT 1
+            """
+        ),
+        {
+            "session_id": session_id,
+            "payload_id": payload_id,
+        },
+    ).scalar()
+
+    model_was_correct = normalized_feedback == "correct"
+    session_status = "confirmed" if model_was_correct else "cancelled"
+
+    db.execute(
+        text(
+            """
+            UPDATE parking_sessions
+            SET user_label = :user_label,
+                status = CAST(:status AS session_status),
+                user_responded_at = NOW(),
+                updated_at = NOW()
+            WHERE id = :session_id
+            """
+        ),
+        {
+            "session_id": session_id,
+            "user_label": model_was_correct,
+            "status": session_status,
+        },
+    )
+
+    training_label_id = db.execute(
+        text(
+            """
+            INSERT INTO training_labels (
+                session_id,
+                inference_log_id,
+                location_type,
+                label_confidence,
+                label_source,
+                model_was_correct,
+                created_at
+            )
+            VALUES (
+                :session_id,
+                CAST(:inference_log_id AS UUID),
+                CAST('unknown' AS location_type),
+                :label_confidence,
+                :label_source,
+                :model_was_correct,
+                NOW()
+            )
+            RETURNING id::text
+            """
+        ),
+        {
+            "session_id": session_id,
+            "inference_log_id": inference_id,
+            "label_confidence": 1.0,
+            "label_source": "user_confirm" if model_was_correct else "user_cancel",
+            "model_was_correct": model_was_correct,
+        },
+    ).scalar_one()
+
+    db.commit()
+    return {
+        "status": "ok",
+        "session_id": session_id,
+        "payload_id": payload_id,
+        "feedback": normalized_feedback,
+        "model_was_correct": model_was_correct,
+        "training_label_id": training_label_id,
+    }
