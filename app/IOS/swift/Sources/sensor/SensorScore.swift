@@ -1,17 +1,5 @@
 import Foundation
 
-// ── Scoring por tick ──────────────────────────────────
-// Calcula, sobre um buffer de amostras, um "score de transição" por tick (~1 Hz)
-// usando a fusão de 4 sinais: GPS accuracy, GPS speed, magnetómetro e pressão.
-// A pressão contribui de forma opcional (0 se o barómetro não tiver leituras),
-// para não anular o tick em dispositivos sem barómetro.
-//
-// O tick de score mais alto marca o PICO da variação: é o momento, ainda em
-// rua válida, em que os sensores mais variaram face a ~10 s antes. Mas a variação
-// COMEÇOU nesse tick de ~10 s antes (o baseline que foi comparado com o pico), e é
-// esse o INÍCIO da janela de captura. A janela vai do baseline até ao instante do
-// "Analisar" (última leitura do buffer).
-//
 // Passos (alinhados com a especificação):
 //   1. Δ de cada sensor vs leitura de ~5 s atrás (rateMs).
 //   2. Gate: velocidade > minSpeedMps E GPS com sinal — senão score = 0.
@@ -58,49 +46,21 @@ extension SensorWindow {
     /// Parâmetros de calibração do score. Valores iniciais — a rever com dados de campo.
     struct ScoreParams {
         var rateMs:      Int64  = 10_000   // janela de variação (Passo 1)
-        var minSpeedMps: Double = 1.25     // gate de rua (Passo 2)
-
-        // ── Vizinhança de gate (Passo 2b) ────────────────────────────────────
-        // Um tick só pontua se, além de passar o gate de rua, a sua VIZINHANÇA
-        // (±gateOffWindowMs) tiver no máximo `maxGateOffFrac` de ticks sem gate.
-        // Isto elimina picos falsos em ticks ruidosos ISOLADOS no subterrâneo
-        // (sinal GPS intermitente que reaparece 1 tick com accuracy/speed absurdas,
-        // gerando um Δ enorme) e em paragens na rua (velocidade a oscilar em torno
-        // do gate). Não basta o tick passar o gate: a rua à volta tem de ser válida.
-        var gateOffWindowMs: Int64  = 10_000   // janela ± à volta do tick
-        var maxGateOffFrac:  Double = 0.30     // fração máxima de gate-off tolerada
+        var minSpeedMps: Double = 0.5     // gate de rua (Passo 2)
+        var gateOffWindowMs: Int64  = 7_000   // janela ± à volta do tick
+        var maxGateOffFrac:  Double = 0.50     // fração máxima de gate-off tolerada
         var deadband:    Double = 0.3     // em σ: abaixo disto → 0 (Passo 4)
-        var cap:         Double = 3.0     // em σ: tecto por sensor (Passo 4)
-        var weightAcc:      Double = 1.0  // pesos (Passo 5)
+        var cap:         Double = 5.0     // em σ: tecto por sensor (Passo 4)
+        var weightAcc:      Double = 1.2  // pesos (Passo 5)
         var weightSpeed:    Double = 1.0
-        var weightMag:      Double = 1.0
+        var weightMag:      Double = 0.6
         var weightPressure: Double = 1.0
         var emaAlpha:       Double = 0.5  // suavização (Passo 7)
-
-        // ── Baseline: recuo do pico até à calmaria (Passo 8b) ────────────────
-        // Em vez de fixar o baseline a `rateMs` antes do pico (recuo fixo que cai
-        // no MEIO de rampas longas), recuamos tick a tick a partir do pico até ao
-        // primeiro tick "calmo" — score < limiar. Esse é o instante em que a
-        // variação ainda não tinha começado: a rua antes da entrada no parque.
-        //   • limiar = max(baselineQuietFloor, baselineQuietFrac × score_do_pico)
-        //     — relativo ao pico (auto-escala à magnitude da transição), com um
-        //     piso absoluto para não parar em ruído de rua num pico fraco;
-        //   • baselineMaxLookbackMs limita o recuo (se nunca houver calmaria, não
-        //     foge para o ciclo de rua anterior).
         var baselineQuietFrac:     Double = 0.30    // fração do score do pico
         var baselineQuietFloor:    Double = 1.5     // piso absoluto do limiar
         var baselineMaxLookbackMs: Int64  = 30_000  // recuo máximo a partir do pico
 
         // ── Peso por recência (Passo 8) ──────────────────────────────────────
-        // A transição para o parque acontece, na maioria dos casos, entre ~30s e
-        // ~2min ANTES de estacionar (o fim do buffer = instante do "Analisar").
-        // Ponderamos o score de cada tick pela sua IDADE face ao fim do buffer:
-        //   • idade em [plateauStart, plateauEnd] → peso 1 (janela típica);
-        //   • idade < plateauStart (colado ao fim = manobra de estacionar) →
-        //     peso desce suavemente até `nearWeight` (não é a entrada);
-        //   • idade > plateauEnd (rua, no passado distante) → decai ~exp(−Δ/τ).
-        // Isto elimina picos falsos de rua distantes sem apagar a transição real.
-        // `recencyEnabled = false` reproduz o comportamento anterior.
         var recencyEnabled:      Bool   = true
         var recencyPlateauStartMs: Int64 = 20_000    // 20 s antes do fim
         var recencyPlateauEndMs:   Int64 = 140_000   // 2 min antes do fim

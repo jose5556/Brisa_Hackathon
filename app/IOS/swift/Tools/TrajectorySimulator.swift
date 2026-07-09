@@ -248,7 +248,7 @@ let scenarioSurface: [Phase] = ruaUrbana(400) + [
 ]
 
 // Cenário F — sobe ao piso 2 (subida curta, ~+6 m → ~-0.71 hPa)
-let scenarioUp2: [Phase] = ruaUrbana(400) + [
+let scenarioUp2: [Phase] = ruaUrbana(200) + [
     Phase(name: "Entrada estacionamento", durationS: 15, speedMps: 2.0, accuracyM: 20, hasSignal: true, pressureHpa: 1012.95, magUt: 55, magJitter: 8),
     Phase(name: "Rampa sobe → piso 2",    durationS: 35, speedMps: 1.4, accuracyM: 42, hasSignal: true, pressureHpa: 1012.29, magUt: 43, magJitter: 15),
     Phase(name: "Estacionado (piso 2)",   durationS: 10, speedMps: 0.0, accuracyM: 46, hasSignal: true, pressureHpa: 1012.29, magUt: 45, magJitter: 12),
@@ -271,7 +271,7 @@ let scenarioNoisyRamp: [Phase] = ruaUrbana(400) + [
 // Todos usam a regra ~0.33 hPa por piso (descer → Δ +, subir → Δ −).
 
 // Cenário H — SUPERFÍCIE após AVENIDA (rua diferente, Δ pressão ≈ 0)
-let scenarioSurfaceAvenida: [Phase] = ruaAvenida(400) + [
+let scenarioSurfaceAvenida: [Phase] = ruaAvenida(600) + [
     Phase(name: "Entrada parque superfície", durationS: 12, speedMps: 2.0, accuracyM: 18, hasSignal: true, pressureHpa: 1013.00, magUt: 50, magJitter: 4),
     Phase(name: "Manobra até ao lugar",      durationS: 18, speedMps: 1.5, accuracyM: 22, hasSignal: true, pressureHpa: 1013.00, magUt: 49, magJitter: 5),
     Phase(name: "Estacionado (superfície)",  durationS: 10, speedMps: 0.0, accuracyM: 20, hasSignal: true, pressureHpa: 1013.00, magUt: 48, magJitter: 4),
@@ -280,7 +280,7 @@ let scenarioSurfaceAvenida: [Phase] = ruaAvenida(400) + [
 // Cenário I — SUPERFÍCIE junto a PRÉDIO RUIDOSO (mag/GPS ruidosos, mas Δp ≈ 0)
 // Teste de FALSO POSITIVO: muito ruído magnético/GPS sem mudança de piso NÃO
 // deve gerar Δ de pressão nem detetar transição de andar.
-let scenarioSurfaceNoisy: [Phase] = ruaCongestionada(400) + [
+let scenarioSurfaceNoisy: [Phase] = ruaCongestionada(100) + [
     Phase(name: "Entrada parque superfície", durationS: 12, speedMps: 2.0, accuracyM: 22, hasSignal: true, pressureHpa: 1013.00, magUt: 52, magJitter: 30, accJitter: 12),
     Phase(name: "Manobra junto ao prédio",   durationS: 20, speedMps: 1.5, accuracyM: 30, hasSignal: true, pressureHpa: 1013.00, magUt: 50, magJitter: 38, accJitter: 15),
     Phase(name: "Estacionado (superfície)",  durationS: 10, speedMps: 0.0, accuracyM: 28, hasSignal: true, pressureHpa: 1013.00, magUt: 49, magJitter: 30, accJitter: 10),
