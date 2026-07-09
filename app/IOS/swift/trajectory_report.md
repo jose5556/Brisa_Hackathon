@@ -1,5 +1,5 @@
 # Trajectory Simulator — Report
-Gerado em: 2026-07-09T15:11:59Z
+Gerado em: 2026-07-09T15:25:05Z
 Reutiliza o código de produção (SensorScore.computeScore + SensorWindow.toPayload).
 Δ pressão: 'esperada' = curva sem ruído sobre a janela recortada; 'obtida' = payload com ruído.
 
