@@ -122,6 +122,7 @@ struct SensorLogsView: View {
                                 JsonBlock(pairs: [
                                     ("latitude",               String(format: "%.5f", p.latitude)),
                                     ("longitude",              String(format: "%.5f", p.longitude)),
+                                    ("city",                   "\"\(p.city ?? "")\""),
                                     ("gps_accuracy_mean",      String(format: "%.2f", p.gpsAccuracyMean)),
                                     ("gps_accuracy_delta",     String(format: "%.2f", p.gpsAccuracyDelta)),
                                     ("gps_lost_ratio",         String(format: "%.2f", p.gpsLostRatio)),

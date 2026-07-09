@@ -66,6 +66,11 @@ struct ContentView: View {
                     // Resultado
                     if case .success(let response) = viewModel.uploadResult {
                         ResultCard(response: response)
+                        FeedbackCard(
+                            state: viewModel.feedbackState,
+                            onCorrect:   { viewModel.sendFeedback(.correct) },
+                            onIncorrect: { viewModel.sendFeedback(.incorrect) }
+                        )
                     }
 
                     // Erro
@@ -407,6 +412,90 @@ private struct ResultRow: View {
                 .lineLimit(1)
                 .truncationMode(.middle)
         }
+    }
+}
+
+// ── FeedbackCard ──────────────────────────────────────
+// Pergunta ao utilizador se a decisão de cobrança está correta e envia o
+// veredicto para /feedback.
+struct FeedbackCard: View {
+    let state: FeedbackState
+    let onCorrect: () -> Void
+    let onIncorrect: () -> Void
+
+    private var isSending: Bool { state == .sending }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("A DECISÃO ESTÁ CORRECTA?")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(.vvMuted)
+                .kerning(1.5)
+
+            switch state {
+            case .sent(let verdict):
+                HStack(spacing: 8) {
+                    Text(verdict == .correct ? "✓" : "✕")
+                        .font(.system(size: 14, weight: .bold))
+                    Text(verdict == .correct
+                         ? "Obrigado! Marcaste como correcta."
+                         : "Obrigado! Marcaste como incorrecta.")
+                        .font(.system(size: 13, weight: .medium))
+                }
+                .foregroundColor(.vvGreenDark)
+
+            default:
+                HStack(spacing: 10) {
+                    Button(action: onCorrect) {
+                        Text("✓  CORRECTO")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 44)
+                            .background(Color.vvGreen)
+                            .cornerRadius(10)
+                    }
+                    .disabled(isSending)
+
+                    Button(action: onIncorrect) {
+                        Text("✕  INCORRECTO")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(Color(red: 0.690, green: 0, blue: 0.125))
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 44)
+                            .background(Color(red: 1, green: 0.941, blue: 0.941))
+                            .cornerRadius(10)
+                            .overlay(RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color(red: 1, green: 0.804, blue: 0.820), lineWidth: 1))
+                    }
+                    .disabled(isSending)
+                }
+                .opacity(isSending ? 0.5 : 1)
+
+                if isSending {
+                    HStack(spacing: 8) {
+                        ProgressView().scaleEffect(0.8)
+                        Text("A enviar feedback…")
+                            .font(.system(size: 12))
+                            .foregroundColor(.vvMuted)
+                    }
+                }
+
+                if case .error(let message) = state {
+                    Text("⚠ \(message)")
+                        .font(.system(size: 12))
+                        .foregroundColor(Color(red: 0.690, green: 0, blue: 0.125))
+                }
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.vvCard)
+        .cornerRadius(14)
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(Color.vvBorder, lineWidth: 1)
+        )
     }
 }
 

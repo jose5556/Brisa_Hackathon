@@ -1,12 +1,13 @@
-from typing import Any
+from typing import Any, Literal
 
+from pydantic import BaseModel, Field
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from src.database_session_connection import get_db
-from src.parking_service import analyze_and_store_parking_event
+from src.parking_service import analyze_and_store_parking_event, store_user_feedback
 
 import subprocess
 
@@ -127,9 +128,23 @@ def latest_parking_events(
                 ps.location_accuracy_m,
                 il.ml1_non_street_confidence,
                 il.final_decision,
-                il.final_confidence
+                il.final_confidence,
+                tl.model_was_correct AS feedback_correct,
+                tl.created_at AS feedback_at,
+                CASE
+                    WHEN tl.model_was_correct IS TRUE THEN 'correct'
+                    WHEN tl.model_was_correct IS FALSE THEN 'incorrect'
+                    ELSE NULL
+                END AS feedback_verdict
             FROM parking_sessions ps
             LEFT JOIN inference_logs il ON il.session_id = ps.id
+            LEFT JOIN LATERAL (
+                SELECT model_was_correct, created_at
+                FROM training_labels
+                WHERE session_id = ps.id
+                ORDER BY created_at DESC
+                LIMIT 1
+            ) tl ON TRUE
             ORDER BY ps.created_at DESC
             LIMIT :limit
             """
@@ -193,10 +208,24 @@ def get_parking_event(
                 sp.raw_payload,
                 il.ml1_non_street_confidence,
                 il.final_decision,
-                il.final_confidence
+                il.final_confidence,
+                tl.model_was_correct AS feedback_correct,
+                tl.created_at AS feedback_at,
+                CASE
+                    WHEN tl.model_was_correct IS TRUE THEN 'correct'
+                    WHEN tl.model_was_correct IS FALSE THEN 'incorrect'
+                    ELSE NULL
+                END AS feedback_verdict
             FROM parking_sessions ps
             LEFT JOIN sensor_payloads sp ON sp.session_id = ps.id
             LEFT JOIN inference_logs il ON il.session_id = ps.id
+            LEFT JOIN LATERAL (
+                SELECT model_was_correct, created_at
+                FROM training_labels
+                WHERE session_id = ps.id
+                ORDER BY created_at DESC
+                LIMIT 1
+            ) tl ON TRUE
             WHERE ps.id = :session_id
             ORDER BY ps.created_at DESC
             LIMIT 1
@@ -209,3 +238,51 @@ def get_parking_event(
         raise HTTPException(status_code=404, detail="Parking event not found")
 
     return dict(row)
+
+
+class FeedbackRequestBody(BaseModel):
+    payload_id: str = Field(..., description="ID do payload de sensores associado à sessão")
+    session_id: str = Field(..., description="ID da sessão de estacionamento")
+    feedback: Literal["correct", "incorrect"] = Field(
+        ..., description="Veredicto do utilizador sobre a decisão final"
+    )
+
+
+class FeedbackResponseBody(BaseModel):
+    status: str
+    session_id: str
+    payload_id: str
+    feedback: str
+    model_was_correct: bool
+    training_label_id: str
+
+
+@app.post(
+    "/feedback",
+    response_model=FeedbackResponseBody,
+    summary="Guardar feedback do utilizador",
+    description=(
+        "Recebe o veredicto do utilizador sobre a decisão do modelo e persiste "
+        "o feedback em parking_sessions e training_labels."
+    ),
+)
+def submit_feedback(
+    request: FeedbackRequestBody,
+    db: Session = Depends(get_db),
+):
+    try:
+        return store_user_feedback(
+            db=db,
+            session_id=request.session_id,
+            payload_id=request.payload_id,
+            feedback=request.feedback,
+        )
+    except ValueError as error:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(error))
+    except Exception as error:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to store feedback: {str(error)}",
+        )

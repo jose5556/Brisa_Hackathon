@@ -101,7 +101,7 @@ CREATE TABLE parking_sessions (
     session_ended_at        TIMESTAMPTZ,
 
     -- Shadow mode - manual user label
-    user_label              BOOLEAN,                   -- TRUE=confirmed, FALSE=cancelled
+    user_label              BOOLEAN,                   -- TRUE=correct, FALSE=incorrect
 
     -- Device metadata
     device_os_version       TEXT,
@@ -209,7 +209,7 @@ CREATE TABLE training_labels (
     -- Label
     location_type       location_type NOT NULL,
     label_confidence    NUMERIC(5,4) NOT NULL DEFAULT 1.0,  -- 1.0 = full certainty
-    label_source        TEXT NOT NULL,   -- 'user_confirm' | 'user_cancel' | 'manual' | 'auto'
+    label_source        TEXT NOT NULL,   -- 'correct' | 'incorrect'
     labelled_by         UUID REFERENCES users(id),          -- NULL if automatic
 
     -- Confirmed geometry (may differ slightly from GPS)

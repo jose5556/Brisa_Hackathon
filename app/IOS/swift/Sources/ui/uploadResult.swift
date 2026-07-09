@@ -16,3 +16,11 @@ enum UploadResult: Equatable {
         }
     }
 }
+
+// Estado do envio de feedback (Correto/Incorreto) para /feedback.
+enum FeedbackState: Equatable {
+    case idle
+    case sending
+    case sent(FeedbackVerdict)
+    case error(message: String)
+}
