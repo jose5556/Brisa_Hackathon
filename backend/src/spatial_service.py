@@ -6,7 +6,8 @@ from sqlalchemy.orm import Session
 
 log = logging.getLogger(__name__)
 
-SEARCH_RADIUS_M = 30.0
+SEARCH_QUERY = 40
+GPS_TOLERANCE_RADIUS_M = 10.0
 
 def get_spatial_context(
     db: Session,
@@ -29,8 +30,6 @@ def get_spatial_context(
     if not city:
         log.warning("get_spatial_context called without city — returning no-zone result.")
         return _no_zone_result(reason="missing_city")
-
-    city = city.strip().upper()
     
     if not (-90 <= latitude <= 90) or not (-180 <= longitude <= 180):
         log.warning(
@@ -58,7 +57,7 @@ def get_spatial_context(
                 AND ST_DWithin(
                             ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography,
                             geom::geography,
-                            :radius_m
+                            :query
                 )
                 ORDER BY distance_to_zone_m ASC
                 LIMIT 1
@@ -68,7 +67,7 @@ def get_spatial_context(
                 "lon": longitude,
                 "lat": latitude,
                 "city": city,
-                "radius_m": SEARCH_RADIUS_M
+                "query": SEARCH_QUERY,
             }
         ).mappings().first()
 
@@ -82,21 +81,23 @@ def get_spatial_context(
     if result is None:
         log.debug(
             "No paid zone within %.0f m of (lat=%s, lon=%s, city=%s).",
-            SEARCH_RADIUS_M, latitude, longitude, city,
+            SEARCH_QUERY, latitude, longitude, city,
         )
         return _no_zone_result(reason="no_zone_nearby")
     
-    inside_zone        = bool(result["inside_zone"])
+    inside_polygon = bool(result["inside_zone"])
     distance_to_zone_m = float(result["distance_to_zone_m"])
     zone_id            = str(result["zone_id"])
 
+    in_paid_zone = inside_polygon or (distance_to_zone_m <= GPS_TOLERANCE_RADIUS_M)
+
     log.debug(
-        "Spatial result: zone_id=%s  inside=%s  distance=%.2f m",
-        zone_id, inside_zone, distance_to_zone_m,
+        "Spatial result: zone_id=%s  inside_polygon=%s  in_paid_zone=%s  distance=%.2f m",
+        zone_id, inside_polygon, in_paid_zone, distance_to_zone_m,
     )
 
     return {
-        "in_paid_zone":        inside_zone,
+        "in_paid_zone":        in_paid_zone,
         "zone_id":             zone_id,
         "distance_to_zone_m":  distance_to_zone_m,
         "reason":              None,
