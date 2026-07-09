@@ -14,9 +14,17 @@ from src.spatial_ml_predict import predict_final_decision
 log = logging.getLogger(__name__)
 
 DEFAULT_PLATFORM = "ios"
-# Valid city codes — must match the city_code ENUM in schema.sql
-VALID_CITIES = {"Porto", "Lisboa", "Oeiras", "Espinho", "Vila nova de Gaia", "Matosinhos", "Maia"}
+# Valid city codes — must match the city_code TEXT in schema.sql
+VALID_CITIES = {"Porto", "Lisboa", "Oeiras", "Espinho", "Vila Nova de Gaia", "Matosinhos", "Maia"}
 
+# Pipeline abort reason codes, stored in inference_logs and returned in the
+# API response so the developer dashboard can filter by abort type.
+VERTICAL_ABORT = "vertical_abort"   # Model 1: underground or above_ground
+SPATIAL_ABORT  = "spatial_abort"    # street_level but outside paid zone
+NO_CHARGE      = "no_charge"        # Model 2: charge_confidence below threshold
+CHARGE         = "charge"           # All checks passed, initiate billing
+
+"""
 def _resolve_city(payload: dict[str, Any]) -> str:
     """
     Extracts and validates the city from the payload.
@@ -35,6 +43,18 @@ def _resolve_city(payload: dict[str, Any]) -> str:
             f"Expected one of: {sorted(VALID_CITIES)}"
         )
     return city
+"""
+
+def _resolve_city(payload: dict[str, Any]) -> str:
+    raw = payload.get("city")
+    if not raw or not str(raw).strip():
+        raise ValueError(
+            "Missing 'city' in payload. "
+            "Send the city name as received from CLGeocoder, "
+            "e.g. 'Porto', 'Vila Nova de Gaia', 'Viana do Castelo'."
+        )
+    return str(raw).strip()
+
 
 def get_or_create_dev_user(db: Session, city: str) -> str:
     # Try to find existing user first
@@ -111,7 +131,7 @@ def create_parking_session(db: Session, payload: dict[str, Any], user_id: str, c
                 )
                 VALUES (
                     :user_id,
-                    CAST(:city AS city_code),
+                    :city,
                     'detecting',
                     ST_SetSRID(
                         ST_MakePoint(:longitude, :latitude),
@@ -148,7 +168,7 @@ def create_parking_session(db: Session, payload: dict[str, Any], user_id: str, c
                 )
                 VALUES (
                     :user_id,
-                    CAST(:city AS city_code),
+                    :city,
                     'detecting',
                     :location_accuracy_m,
                     :device_os_version,
@@ -358,6 +378,25 @@ def analyze_and_store_parking_event(
 
         ml1_prediction = predict_vertical_context(payload)
         ml1_conf = ml1_prediction["non_street_confidence"]
+        ml1_class      = ml1_prediction["classification"]
+
+        if ml1_class in ("underground", "above"):
+            log.info(
+                "VERTICAL_ABORT session=%s classification=%s confidence=%.4f",
+                session_id, ml1_class, ml1_conf,
+            )
+            update_session_status(db, session_id, VERTICAL_ABORT)
+            db.commit()
+            return {
+                "session_id":                session_id,
+                "payload_id":                payload_id,
+                "inference_id":              None,
+                "abort_code":                VERTICAL_ABORT,
+                "ml1_classification":        ml1_class,
+                "ml1_non_street_confidence": ml1_conf,
+                "final_decision":            VERTICAL_ABORT,
+                "confidence_to_charge":      0.0,
+            }
 
         spatial = get_spatial_context(
             db=db, 
@@ -366,22 +405,27 @@ def analyze_and_store_parking_event(
             city=city,
         )
 
-        if spatial["in_paid_zone"] is None:
-            log.warning(
-                "Spatial lookup returned None for session %s (reason: %s). "
-                "Aborting pipeline — no_charge.",
-                session_id, spatial.get("reason"),
+        if not spatial["in_paid_zone"]:
+            # Covers both False (outside zone) and None (lookup failed)
+            reason = spatial.get("reason") or "outside_paid_zone"
+            log.info(
+                "SPATIAL_ABORT session=%s reason=%s distance=%.1f m",
+                session_id, reason,
+                spatial["distance_to_zone_m"] or -1,
             )
-            update_session_status(db, session_id, "no_charge")
+            db.rollback()  # clear any failed sub-transaction from PostGIS
+            update_session_status(db, session_id, SPATIAL_ABORT)
             db.commit()
             return {
                 "session_id":                session_id,
                 "payload_id":                payload_id,
                 "inference_id":              None,
-                "ml1_classification":        ml1_prediction["classification"],
+                "abort_code":                SPATIAL_ABORT,
+                "ml1_classification":        ml1_class,
                 "ml1_non_street_confidence": ml1_conf,
-                "spatial_abort_reason":      spatial.get("reason"),
-                "final_decision":            "no_charge",
+                "spatial_reason":            reason,
+                "distance_to_zone_m":        spatial["distance_to_zone_m"],
+                "final_decision":            SPATIAL_ABORT,
                 "confidence_to_charge":      0.0,
             }
 
