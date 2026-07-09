@@ -108,7 +108,7 @@ POST /parking-events/analyze
 Example for street level, **without charge**:
 
 ```bash
-curl -X POST "http://100.121.113.91:8000/parking-events/analyze" \
+curl -X POST "http://localhost:8000/parking-events/analyze" \
      -H "Content-Type: application/json" \
      -d '{
        "city":"Espinho",
