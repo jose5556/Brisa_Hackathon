@@ -14,28 +14,26 @@ from src.spatial_ml_predict import predict_final_decision
 log = logging.getLogger(__name__)
 
 DEFAULT_PLATFORM = "ios"
-# Valid city codes — must match the city_code ENUM in schema.sql
-VALID_CITIES = {"Porto", "Lisboa", "Oeiras", "Espinho"}
+# Valid city codes — must match the city_code TEXT in schema.sql
+VALID_CITIES = {"Porto", "Lisboa", "Oeiras", "Espinho", "Vila Nova de Gaia", "Matosinhos", "Maia"}
+
+# Pipeline abort reason codes, stored in inference_logs and returned in the
+# API response so the developer dashboard can filter by abort type.
+VERTICAL_ABORT = "vertical_abort"   # Model 1: underground or above_ground
+SPATIAL_ABORT  = "spatial_abort"    # street_level but outside paid zone
+NO_CHARGE      = "no_charge"        # Model 2: charge_confidence below threshold
+CHARGE         = "charge"           # All checks passed, initiate billing
 
 def _resolve_city(payload: dict[str, Any]) -> str:
-    """
-    Extracts and validates the city from the payload.
-    Raises ValueError if missing or not in VALID_CITIES.
-    FastAPI will surface this as a 422 before it reaches the DB.
-    """
-    city = payload.get("city")
-    if not city:
+    raw = payload.get("city")
+    if not raw or not str(raw).strip():
         raise ValueError(
             "Missing 'city' in payload. "
-            f"Expected one of: {sorted(VALID_CITIES)}"
+            "Send the city name as received from CLGeocoder, "
+            "e.g. 'Porto', 'Vila Nova de Gaia', 'Viana do Castelo'."
         )
-    city = str(city).strip()
-    if city not in VALID_CITIES:
-        raise ValueError(
-            f"Unknown city '{city}'. "
-            f"Expected one of: {sorted(VALID_CITIES)}"
-        )
-    return city
+    return str(raw).strip()
+
 
 def get_or_create_dev_user(db: Session, city: str) -> str:
     # Try to find existing user first
@@ -112,7 +110,7 @@ def create_parking_session(db: Session, payload: dict[str, Any], user_id: str, c
                 )
                 VALUES (
                     :user_id,
-                    CAST(:city AS city_code),
+                    :city,
                     'detecting',
                     ST_SetSRID(
                         ST_MakePoint(:longitude, :latitude),
@@ -149,7 +147,7 @@ def create_parking_session(db: Session, payload: dict[str, Any], user_id: str, c
                 )
                 VALUES (
                     :user_id,
-                    CAST(:city AS city_code),
+                    :city,
                     'detecting',
                     :location_accuracy_m,
                     :device_os_version,
@@ -359,6 +357,25 @@ def analyze_and_store_parking_event(
 
         ml1_prediction = predict_vertical_context(payload)
         ml1_conf = ml1_prediction["non_street_confidence"]
+        ml1_class      = ml1_prediction["classification"]
+
+        if ml1_class in ("underground", "above"):
+            log.info(
+                "VERTICAL_ABORT session=%s classification=%s confidence=%.4f",
+                session_id, ml1_class, ml1_conf,
+            )
+            update_session_status(db, session_id, VERTICAL_ABORT)
+            db.commit()
+            return {
+                "session_id":                session_id,
+                "payload_id":                payload_id,
+                "inference_id":              None,
+                "abort_code":                VERTICAL_ABORT,
+                "ml1_classification":        ml1_class,
+                "ml1_non_street_confidence": ml1_conf,
+                "final_decision":            NO_CHARGE,
+                "confidence_to_charge":      0.0,
+            }
 
         spatial = get_spatial_context(
             db=db, 
@@ -367,22 +384,27 @@ def analyze_and_store_parking_event(
             city=city,
         )
 
-        if spatial["in_paid_zone"] is None:
-            log.warning(
-                "Spatial lookup returned None for session %s (reason: %s). "
-                "Aborting pipeline — no_charge.",
-                session_id, spatial.get("reason"),
+        if not spatial["in_paid_zone"]:
+            # Covers both False (outside zone) and None (lookup failed)
+            reason = spatial.get("reason") or "outside_paid_zone"
+            log.info(
+                "SPATIAL_ABORT session=%s reason=%s distance=%.1f m",
+                session_id, reason,
+                spatial["distance_to_zone_m"] or -1,
             )
-            update_session_status(db, session_id, "no_charge")
+            db.rollback()  # clear any failed sub-transaction from PostGIS
+            update_session_status(db, session_id, SPATIAL_ABORT)
             db.commit()
             return {
                 "session_id":                session_id,
                 "payload_id":                payload_id,
                 "inference_id":              None,
-                "ml1_classification":        ml1_prediction["classification"],
+                "abort_code":                SPATIAL_ABORT,
+                "ml1_classification":        ml1_class,
                 "ml1_non_street_confidence": ml1_conf,
-                "spatial_abort_reason":      spatial.get("reason"),
-                "final_decision":            "no_charge",
+                "spatial_reason":            reason,
+                "distance_to_zone_m":        spatial["distance_to_zone_m"],
+                "final_decision":            NO_CHARGE,
                 "confidence_to_charge":      0.0,
             }
 
@@ -452,3 +474,121 @@ def update_session_status(
         {"status": new_status, "session_id": session_id},
     )
     db.flush()
+
+
+def store_user_feedback(
+    db: Session,
+    session_id: str,
+    payload_id: str,
+    feedback: str,
+) -> dict[str, Any]:
+    """
+    Persiste feedback de utilizador sobre a decisao final do pipeline.
+
+    feedback:
+      - "correct"   -> o utilizador concorda com a decisao
+      - "incorrect" -> o utilizador discorda da decisao
+    """
+    normalized_feedback = str(feedback).strip().lower()
+    if normalized_feedback not in {"correct", "incorrect"}:
+        raise ValueError("Invalid feedback. Expected 'correct' or 'incorrect'.")
+
+    relation_exists = db.execute(
+        text(
+            """
+            SELECT 1
+            FROM sensor_payloads
+            WHERE id = :payload_id
+              AND session_id = :session_id
+            LIMIT 1
+            """
+        ),
+        {
+            "payload_id": payload_id,
+            "session_id": session_id,
+        },
+    ).scalar()
+
+    if relation_exists is None:
+        raise ValueError("Payload/session relation not found.")
+
+    inference_id = db.execute(
+        text(
+            """
+            SELECT id::text
+            FROM inference_logs
+            WHERE session_id = :session_id
+              AND payload_id = :payload_id
+            ORDER BY id DESC
+            LIMIT 1
+            """
+        ),
+        {
+            "session_id": session_id,
+            "payload_id": payload_id,
+        },
+    ).scalar()
+
+    model_was_correct = normalized_feedback == "correct"
+    session_status = "confirmed" if model_was_correct else "cancelled"
+
+    db.execute(
+        text(
+            """
+            UPDATE parking_sessions
+            SET user_label = :user_label,
+                status = CAST(:status AS session_status),
+                user_responded_at = NOW(),
+                updated_at = NOW()
+            WHERE id = :session_id
+            """
+        ),
+        {
+            "session_id": session_id,
+            "user_label": model_was_correct,
+            "status": session_status,
+        },
+    )
+
+    training_label_id = db.execute(
+        text(
+            """
+            INSERT INTO training_labels (
+                session_id,
+                inference_log_id,
+                location_type,
+                label_confidence,
+                label_source,
+                model_was_correct,
+                created_at
+            )
+            VALUES (
+                :session_id,
+                CAST(:inference_log_id AS UUID),
+                CAST('unknown' AS location_type),
+                :label_confidence,
+                :label_source,
+                :model_was_correct,
+                NOW()
+            )
+            RETURNING id::text
+            """
+        ),
+        {
+            "session_id": session_id,
+            "inference_log_id": inference_id,
+            "label_confidence": 1.0,
+            "label_source": "user_confirm" if model_was_correct else "user_cancel",
+            "model_was_correct": model_was_correct,
+        },
+    ).scalar_one()
+
+    db.commit()
+    return {
+        "status": "ok",
+        "session_id": session_id,
+        "payload_id": payload_id,
+        "feedback": normalized_feedback,
+        "model_was_correct": model_was_correct,
+        "training_label_id": training_label_id,
+    }

@@ -108,7 +108,7 @@ POST /parking-events/analyze
 Example for street level, **without charge**:
 
 ```bash
-curl -X POST "http://100.121.113.91:8000/parking-events/analyze" \
+curl -X POST "http://localhost:8000/parking-events/analyze" \
      -H "Content-Type: application/json" \
      -d '{
        "city":"Espinho",
@@ -133,12 +133,12 @@ curl -X POST "http://100.121.113.91:8000/parking-events/analyze" \
 
 Example for street level, **charge**:
 ```bash
-curl -X POST "http://100.121.113.91:8000/parking-events/analyze" \
+curl -X POST "http://localhost:8000/parking-events/analyze" \
      -H "Content-Type: application/json" \
      -d '{
        "city":"Porto",
-       "latitude": 41.14723,
-       "longitude": -8.58906,
+       "latitude": 41.148664,
+       "longitude": -8.6130874,
        "gps_accuracy_mean": 5.2,
        "device_os_version": "iOS 17.5",
        "app_version": "1.0.0",
@@ -159,7 +159,7 @@ curl -X POST "http://100.121.113.91:8000/parking-events/analyze" \
 Example for underground:
 
 ```bash
-curl -X POST "http://100.121.113.91:8000/parking-events/analyze" \
+curl -X POST "http://localhost:8000/parking-events/analyze" \
      -H "Content-Type: application/json" \
      -d '{
        "city":"Oeiras",
