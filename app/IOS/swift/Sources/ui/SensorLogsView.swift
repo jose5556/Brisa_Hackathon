@@ -29,7 +29,7 @@ struct SensorLogsView: View {
                         }()
 
                         // t-Xs relativo à leitura mais recente (nil → "—")
-                        func rel(_ ts: Int64?) -> String {
+                        let rel: (Int64?) -> String = { ts in
                             guard let ts = ts else { return "—" }
                             return String(format: "t-%.0fs", Double(refMs - ts) / 1000.0)
                         }

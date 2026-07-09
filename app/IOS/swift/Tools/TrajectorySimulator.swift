@@ -177,12 +177,39 @@ let ruaCiclo: [Phase] = [
     Phase(name: "Pós-lomba",          durationS: 4,  speedMps: 11, accuracyM: 12, hasSignal: true, pressureHpa: 1013.00, magUt: 48, magJitter: 4),
 ]
 
-// Repete o ciclo urbano até perfazer ~`seconds` de condução em rua.
-func ruaUrbana(_ seconds: Int) -> [Phase] {
-    let cycleS = ruaCiclo.reduce(0) { $0 + $1.durationS }
-    let reps = max(1, seconds / cycleS)
-    return Array(repeating: ruaCiclo, count: reps).flatMap { $0 }
+// Repete qualquer ciclo de rua até perfazer ~`seconds` de condução.
+func repeatCycle(_ cycle: [Phase], _ seconds: Int) -> [Phase] {
+    let cycleS = cycle.reduce(0) { $0 + $1.durationS }
+    let reps = max(1, seconds / max(1, cycleS))
+    return Array(repeating: cycle, count: reps).flatMap { $0 }
 }
+
+// Repete o ciclo urbano até perfazer ~`seconds` de condução em rua.
+func ruaUrbana(_ seconds: Int) -> [Phase] { repeatCycle(ruaCiclo, seconds) }
+
+// ── Variação de rua 1: AVENIDA / via rápida ──────────────────────────────────
+// Fluxo mais livre: cruzeiro alto (~20 m/s), poucas paragens, uma rotunda.
+// Pressão plana (nível da rua) e magnetómetro estável (céu aberto).
+let ruaAvenidaCiclo: [Phase] = [
+    Phase(name: "Cruzeiro rápido",    durationS: 20, speedMps: 20, accuracyM: 9,  hasSignal: true, pressureHpa: 1013.00, magUt: 47, magJitter: 4),
+    Phase(name: "Abranda p/ rotunda", durationS: 5,  speedMps: 6,  accuracyM: 11, hasSignal: true, pressureHpa: 1013.00, magUt: 47, magJitter: 4),
+    Phase(name: "Rotunda",            durationS: 6,  speedMps: 7,  accuracyM: 12, hasSignal: true, pressureHpa: 1013.00, magUt: 48, magJitter: 5),
+    Phase(name: "Retoma cruzeiro",    durationS: 18, speedMps: 22, accuracyM: 9,  hasSignal: true, pressureHpa: 1013.00, magUt: 47, magJitter: 4),
+]
+func ruaAvenida(_ seconds: Int) -> [Phase] { repeatCycle(ruaAvenidaCiclo, seconds) }
+
+// ── Variação de rua 2: TRÂNSITO CONGESTIONADO ────────────────────────────────
+// Stop-and-go constante: muitas paragens (velocidade 0 → o gate desliga várias
+// vezes), avanços curtos. Testa robustez a paragens frequentes que NÃO são o
+// estacionamento (não devem ancorar o baseline).
+let ruaCongestionadaCiclo: [Phase] = [
+    Phase(name: "Anda-para (fila)",   durationS: 4, speedMps: 4, accuracyM: 13, hasSignal: true, pressureHpa: 1013.00, magUt: 48, magJitter: 5),
+    Phase(name: "Parado no trânsito", durationS: 8, speedMps: 0, accuracyM: 15, hasSignal: true, pressureHpa: 1013.00, magUt: 48, magJitter: 5),
+    Phase(name: "Avança 1 carro",     durationS: 3, speedMps: 3, accuracyM: 14, hasSignal: true, pressureHpa: 1013.00, magUt: 48, magJitter: 5),
+    Phase(name: "Parado (semáforo)",  durationS: 9, speedMps: 0, accuracyM: 15, hasSignal: true, pressureHpa: 1013.00, magUt: 48, magJitter: 5),
+    Phase(name: "Pequeno avanço",     durationS: 5, speedMps: 6, accuracyM: 13, hasSignal: true, pressureHpa: 1013.00, magUt: 48, magJitter: 5),
+]
+func ruaCongestionada(_ seconds: Int) -> [Phase] { repeatCycle(ruaCongestionadaCiclo, seconds) }
 
 // Cenário A — desce ao piso -1
 let scenarioDown1: [Phase] = ruaUrbana(400) + [
@@ -234,6 +261,64 @@ let scenarioNoisyRamp: [Phase] = ruaUrbana(400) + [
     Phase(name: "Entrada estacionamento", durationS: 8,  speedMps: 2.0, accuracyM: 25, hasSignal: true,  pressureHpa: 1013.05, magUt: 55, magJitter: 12, accJitter: 6),
     Phase(name: "Rampa espiral → piso -2", durationS: 55, speedMps: 1.2, accuracyM: 55, hasSignal: false, pressureHpa: 1013.71, magUt: 38, magJitter: 35, accJitter: 20),
     Phase(name: "Estacionado (piso -2)",  durationS: 10, speedMps: 0.0, accuracyM: 60, hasSignal: false, pressureHpa: 1013.71, magUt: 34, magJitter: 25, accJitter: 15),
+]
+
+// ═════════════════════════════════════════════════════════════════════════════
+// CENÁRIOS EXTRA — variações de rua + superfície + ±1/-2, ruidoso vs não ruidoso
+// ═════════════════════════════════════════════════════════════════════════════
+// "Ruidoso" = prédio de betão/metal (espiral): magJitter e accJitter altos na
+// rampa e no lugar. "Não ruidoso" = estrutura aberta/arejada: jitter baixo.
+// Todos usam a regra ~0.33 hPa por piso (descer → Δ +, subir → Δ −).
+
+// Cenário H — SUPERFÍCIE após AVENIDA (rua diferente, Δ pressão ≈ 0)
+let scenarioSurfaceAvenida: [Phase] = ruaAvenida(400) + [
+    Phase(name: "Entrada parque superfície", durationS: 12, speedMps: 2.0, accuracyM: 18, hasSignal: true, pressureHpa: 1013.00, magUt: 50, magJitter: 4),
+    Phase(name: "Manobra até ao lugar",      durationS: 18, speedMps: 1.5, accuracyM: 22, hasSignal: true, pressureHpa: 1013.00, magUt: 49, magJitter: 5),
+    Phase(name: "Estacionado (superfície)",  durationS: 10, speedMps: 0.0, accuracyM: 20, hasSignal: true, pressureHpa: 1013.00, magUt: 48, magJitter: 4),
+]
+
+// Cenário I — SUPERFÍCIE junto a PRÉDIO RUIDOSO (mag/GPS ruidosos, mas Δp ≈ 0)
+// Teste de FALSO POSITIVO: muito ruído magnético/GPS sem mudança de piso NÃO
+// deve gerar Δ de pressão nem detetar transição de andar.
+let scenarioSurfaceNoisy: [Phase] = ruaCongestionada(400) + [
+    Phase(name: "Entrada parque superfície", durationS: 12, speedMps: 2.0, accuracyM: 22, hasSignal: true, pressureHpa: 1013.00, magUt: 52, magJitter: 30, accJitter: 12),
+    Phase(name: "Manobra junto ao prédio",   durationS: 20, speedMps: 1.5, accuracyM: 30, hasSignal: true, pressureHpa: 1013.00, magUt: 50, magJitter: 38, accJitter: 15),
+    Phase(name: "Estacionado (superfície)",  durationS: 10, speedMps: 0.0, accuracyM: 28, hasSignal: true, pressureHpa: 1013.00, magUt: 49, magJitter: 30, accJitter: 10),
+]
+
+// Cenário J — SOBE ao piso +1 (estrutura ABERTA / não ruidosa, ~+3 m → −0.33 hPa)
+let scenarioUp1: [Phase] = ruaUrbana(400) + [
+    Phase(name: "Entrada estacionamento", durationS: 12, speedMps: 2.0, accuracyM: 20, hasSignal: true, pressureHpa: 1012.98, magUt: 52, magJitter: 8),
+    Phase(name: "Rampa sobe → piso 1",    durationS: 22, speedMps: 1.5, accuracyM: 38, hasSignal: true, pressureHpa: 1012.65, magUt: 45, magJitter: 12),
+    Phase(name: "Estacionado (piso 1)",   durationS: 10, speedMps: 0.0, accuracyM: 40, hasSignal: true, pressureHpa: 1012.65, magUt: 46, magJitter: 10),
+]
+
+// Cenário K — SOBE ao piso +1 (prédio RUIDOSO betão/metal), mesma Δp que J
+let scenarioUp1Noisy: [Phase] = ruaAvenida(400) + [
+    Phase(name: "Entrada estacionamento", durationS: 10, speedMps: 2.0, accuracyM: 24, hasSignal: true,  pressureHpa: 1012.98, magUt: 54, magJitter: 14, accJitter: 8),
+    Phase(name: "Rampa sobe → piso 1",    durationS: 24, speedMps: 1.3, accuracyM: 48, hasSignal: false, pressureHpa: 1012.65, magUt: 40, magJitter: 34, accJitter: 18),
+    Phase(name: "Estacionado (piso 1)",   durationS: 10, speedMps: 0.0, accuracyM: 52, hasSignal: false, pressureHpa: 1012.65, magUt: 36, magJitter: 26, accJitter: 12),
+]
+
+// Cenário L — DESCE ao piso -1 (não ruidoso), após TRÂNSITO congestionado
+let scenarioDown1Calm: [Phase] = ruaCongestionada(400) + [
+    Phase(name: "Entrada estacionamento", durationS: 10, speedMps: 2.0, accuracyM: 22, hasSignal: true, pressureHpa: 1013.05, magUt: 52, magJitter: 8),
+    Phase(name: "Rampa desce → piso -1",  durationS: 20, speedMps: 1.5, accuracyM: 40, hasSignal: true, pressureHpa: 1013.36, magUt: 44, magJitter: 12),
+    Phase(name: "Estacionado (piso -1)",  durationS: 10, speedMps: 0.0, accuracyM: 44, hasSignal: true, pressureHpa: 1013.36, magUt: 42, magJitter: 10),
+]
+
+// Cenário M — DESCE ao piso -1 (prédio RUIDOSO), mesma Δp que L
+let scenarioDown1Noisy: [Phase] = ruaUrbana(400) + [
+    Phase(name: "Entrada estacionamento", durationS: 8,  speedMps: 2.0, accuracyM: 26, hasSignal: true,  pressureHpa: 1013.05, magUt: 55, magJitter: 14, accJitter: 8),
+    Phase(name: "Rampa desce → piso -1",  durationS: 22, speedMps: 1.3, accuracyM: 52, hasSignal: false, pressureHpa: 1013.36, magUt: 38, magJitter: 36, accJitter: 20),
+    Phase(name: "Estacionado (piso -1)",  durationS: 10, speedMps: 0.0, accuracyM: 58, hasSignal: false, pressureHpa: 1013.36, magUt: 34, magJitter: 26, accJitter: 14),
+]
+
+// Cenário N — DESCE ao piso -2 (não ruidoso / arejado), complementa o G (ruidoso)
+let scenarioDown2Calm: [Phase] = ruaAvenida(400) + [
+    Phase(name: "Entrada estacionamento", durationS: 10, speedMps: 2.0, accuracyM: 22, hasSignal: true, pressureHpa: 1013.05, magUt: 52, magJitter: 8),
+    Phase(name: "Rampa desce → piso -2",  durationS: 40, speedMps: 1.5, accuracyM: 42, hasSignal: true, pressureHpa: 1013.71, magUt: 44, magJitter: 12),
+    Phase(name: "Estacionado (piso -2)",  durationS: 10, speedMps: 0.0, accuracyM: 46, hasSignal: true, pressureHpa: 1013.71, magUt: 42, magJitter: 10),
 ]
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -460,13 +545,20 @@ func runAll() {
     rep.line("Δ pressão: 'esperada' = curva sem ruído sobre a janela recortada; 'obtida' = payload com ruído.")
 
     let results = [
-        //runScenario("CENÁRIO A — Porto → estacionamento → DESCE ao piso -1", scenarioDown1,   seed: 42,  into: rep),
-        //runScenario("CENÁRIO B — Porto → estacionamento → SOBE ao piso 3",   scenarioUp3,     seed: 99,  into: rep),
+        runScenario("CENÁRIO A — Porto → estacionamento → DESCE ao piso -1", scenarioDown1,   seed: 42,  into: rep),
+        runScenario("CENÁRIO B — Porto → estacionamento → SOBE ao piso 3",   scenarioUp3,     seed: 99,  into: rep),
         runScenario("CENÁRIO C — Porto → estacionamento → DESCE ao piso -3", scenarioDown3,   seed: 7,   into: rep),
-        //runScenario("CENÁRIO D — Porto → estacionamento → SOBE ao piso 5",   scenarioUp5,     seed: 123, into: rep),
-        //runScenario("CENÁRIO E — Porto → parque à SUPERFÍCIE (sem piso)",    scenarioSurface, seed: 314, into: rep),
-        //runScenario("CENÁRIO F — Porto → estacionamento → SOBE ao piso 2",   scenarioUp2,     seed: 271, into: rep),
-        //runScenario("CENÁRIO G — rampa CAÓTICA (GPS errático + mag extremo) → piso -2", scenarioNoisyRamp, seed: 555, into: rep),
+        runScenario("CENÁRIO D — Porto → estacionamento → SOBE ao piso 5",   scenarioUp5,     seed: 123, into: rep),
+        runScenario("CENÁRIO E — Porto → parque à SUPERFÍCIE (sem piso)",    scenarioSurface, seed: 314, into: rep),
+        runScenario("CENÁRIO F — Porto → estacionamento → SOBE ao piso 2",   scenarioUp2,     seed: 271, into: rep),
+        runScenario("CENÁRIO G — rampa CAÓTICA (GPS errático + mag extremo) → piso -2", scenarioNoisyRamp, seed: 555, into: rep),
+        runScenario("CENÁRIO H — Avenida → parque à SUPERFÍCIE (sem piso)",           scenarioSurfaceAvenida, seed: 808, into: rep),
+        runScenario("CENÁRIO I — SUPERFÍCIE junto a prédio RUIDOSO (falso positivo?)", scenarioSurfaceNoisy,   seed: 616, into: rep),
+        runScenario("CENÁRIO J — SOBE ao piso +1 (estrutura aberta / não ruidosa)",   scenarioUp1,            seed: 111, into: rep),
+        runScenario("CENÁRIO K — SOBE ao piso +1 (prédio RUIDOSO betão/metal)",       scenarioUp1Noisy,       seed: 222, into: rep),
+        runScenario("CENÁRIO L — Trânsito → DESCE ao piso -1 (não ruidoso)",          scenarioDown1Calm,      seed: 333, into: rep),
+        runScenario("CENÁRIO M — DESCE ao piso -1 (prédio RUIDOSO)",                  scenarioDown1Noisy,     seed: 444, into: rep),
+        runScenario("CENÁRIO N — Avenida → DESCE ao piso -2 (não ruidoso / arejado)", scenarioDown2Calm,      seed: 666, into: rep),
     ]
 
     // ── Resumo (no fim do report + no terminal) ──────────────────────────────
