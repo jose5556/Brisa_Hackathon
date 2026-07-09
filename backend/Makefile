@@ -104,6 +104,8 @@ db-reset:
 	$(DOCKER_COMPOSE) down -v
 	$(DOCKER_COMPOSE) up -d
 	@until $(DOCKER_COMPOSE) exec -T db pg_isready -U parking_user -d parking_db >/dev/null 2>&1; do sleep 1; done
+	sleep 2
+	$(PYTHON_VENV) database/data_ingestion/geojson_loader.py
 
 db-shell:
 	$(DOCKER_COMPOSE) exec db psql -U parking_user -d parking_db

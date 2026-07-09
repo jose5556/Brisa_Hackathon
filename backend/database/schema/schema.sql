@@ -27,14 +27,15 @@ CREATE TYPE model_decision AS ENUM (
     'no_charge'           -- score below the minimum threshold
 );
 
-CREATE TYPE city_code AS TEXT (
+CREATE TYPE city_code AS ENUM (
     'Porto',
     'Lisboa',
     'Oeiras',
     'Espinho',
     'Vila nova de Gaia',
     'Matosinhos',
-    'Maia'
+    'Maia',
+    'Arouca'
 );
 
 --============================================================

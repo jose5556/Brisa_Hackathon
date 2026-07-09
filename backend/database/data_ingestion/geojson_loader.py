@@ -31,7 +31,7 @@ CITY_SCHEMA_MAP = {
     "Matosinhos": "Matosinhos",
     "Maia": "Maia",
     "Vila_nova_de_Gaia": "Vila nova de Gaia",
-    "Arouca"
+    "Arouca": "Arouca"
 }
 
 for file_path in geojson_files:

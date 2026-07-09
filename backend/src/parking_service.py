@@ -24,27 +24,6 @@ SPATIAL_ABORT  = "spatial_abort"    # street_level but outside paid zone
 NO_CHARGE      = "no_charge"        # Model 2: charge_confidence below threshold
 CHARGE         = "charge"           # All checks passed, initiate billing
 
-"""
-def _resolve_city(payload: dict[str, Any]) -> str:
-    """
-    Extracts and validates the city from the payload.
-    Raises ValueError if missing or not in VALID_CITIES.
-    FastAPI will surface this as a 422 before it reaches the DB.
-    """
-    city = payload.get("city")
-    if not city:
-        raise ValueError(
-            "Missing 'city' in payload. "
-            f"Expected one of: {sorted(VALID_CITIES)}"
-        )
-    if city not in VALID_CITIES:
-        raise ValueError(
-            f"Unknown city '{city}'. "
-            f"Expected one of: {sorted(VALID_CITIES)}"
-        )
-    return city
-"""
-
 def _resolve_city(payload: dict[str, Any]) -> str:
     raw = payload.get("city")
     if not raw or not str(raw).strip():
@@ -394,7 +373,7 @@ def analyze_and_store_parking_event(
                 "abort_code":                VERTICAL_ABORT,
                 "ml1_classification":        ml1_class,
                 "ml1_non_street_confidence": ml1_conf,
-                "final_decision":            VERTICAL_ABORT,
+                "final_decision":            NO_CHARGE,
                 "confidence_to_charge":      0.0,
             }
 
@@ -425,7 +404,7 @@ def analyze_and_store_parking_event(
                 "ml1_non_street_confidence": ml1_conf,
                 "spatial_reason":            reason,
                 "distance_to_zone_m":        spatial["distance_to_zone_m"],
-                "final_decision":            SPATIAL_ABORT,
+                "final_decision":            NO_CHARGE,
                 "confidence_to_charge":      0.0,
             }
 
