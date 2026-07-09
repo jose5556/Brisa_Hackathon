@@ -255,15 +255,20 @@ struct ScenarioResult {
     let passed: Bool            // Δ pressão dentro da tolerância?
     let note: String
 
-    // Ancoragem: segundo real da entrada no parque vs pico/baseline detetados.
+    // Ancoragem: segundo real da entrada no parque vs baseline/pico detetados.
     let entrySec: Int?          // ground-truth: saiu da rua / entrou no parque
+    let baseSec: Int?           // baseline (início da janela) detetado
     let peakSec: Int?           // pico da variação detetado
-    let anchorOk: Bool          // pico detetado perto da entrada real?
+    let anchorOk: Bool          // baseline detetado junto à entrada real?
 }
 
-// Margem (s) em torno da janela de transição real [entrada → estacionado]
-// dentro da qual o pico detetado é considerado bem ancorado.
-let anchorMarginS = 10
+// O baseline (início da janela recortada) deve cair JUNTO ao momento real em que
+// o carro saiu da rua e entrou no parque. Tolerâncias (s):
+//   • até `baselineLeadMaxS` ANTES da entrada → ok (a janela inclui algum "antes",
+//     o que ajuda a apanhar a pressão de rua como referência do delta);
+//   • até `baselineLagMaxS` DEPOIS → no máximo, senão perde o início da transição.
+let baselineLeadMaxS = 10
+let baselineLagMaxS  = 5
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Execução de um cenário → escreve no report e devolve um resumo.
@@ -288,14 +293,17 @@ func runScenario(_ title: String, _ phases: [Phase], seed: UInt64,
     // ── Score por tick ────────────────────────────────
     let scoring = window.computeScore()
     rep.line("\n── Score de transição por tick (só ticks com variação/gate relevante) ──")
-    rep.line("   s   gate     dAcc     dSpd     dMag   dPress     raw  score")
+    rep.line("   s   gate  clean     dAcc     dSpd     dMag   dPress     raw  score    rec  wscore")
     for tick in scoring.ticks {
         let s = (tick.timestampMs - base) / 1000
-        if tick.rawScore > 0.01 || tick.timestampMs == scoring.bestTimestampMs {
-            rep.line(String(format: "%4lld %6@ %8.2f %8.2f %8.2f %8.3f %7.2f %6.2f",
-                            s, tick.gated ? "sim" : "não",
+        // Mostra ticks com score, o pico, e ticks REJEITADOS pela vizinhança
+        // (gated mas !clean) — para se ver o filtro do Passo 2b a atuar.
+        if tick.rawScore > 0.01 || tick.timestampMs == scoring.bestTimestampMs
+            || (tick.gated && !tick.clean) {
+            rep.line(String(format: "%4lld %6@ %6@ %8.2f %8.2f %8.2f %8.3f %7.2f %6.2f  %5.2f %6.2f",
+                            s, tick.gated ? "sim" : "não", tick.clean ? "sim" : "NÃO",
                             tick.dAcc, tick.dSpeed, tick.dMag, tick.dPress,
-                            tick.rawScore, tick.score))
+                            tick.rawScore, tick.score, tick.recency, tick.weightedScore))
         }
     }
 
@@ -307,7 +315,7 @@ func runScenario(_ title: String, _ phases: [Phase], seed: UInt64,
     if let best = scoring.bestTimestampMs, let start = scoring.windowStartMs {
         startTs = start
         rep.line(String(format: "\n➜ PICO da variação @ %llds  (score=%.2f)", (best - base)/1000, scoring.bestScore))
-        rep.line(String(format: "➜ INÍCIO da janela  @ %llds  (baseline ~10s antes do pico)", (start - base)/1000))
+        rep.line(String(format: "➜ INÍCIO da janela  @ %llds  (baseline: recuo do pico até à calmaria)", (start - base)/1000))
         let durS = Double(endTs - start) / 1000.0
         rep.line(String(format: "➜ Janela final: [%llds → %llds] = %.0fs de captura",
                         (start - base)/1000, (endTs - base)/1000, durS))
@@ -323,7 +331,7 @@ func runScenario(_ title: String, _ phases: [Phase], seed: UInt64,
         rep.line("\n⚠ Sem payload (janela vazia).")
         return ScenarioResult(title: title, expectedDelta: 0, obtainedDelta: 0,
                               passed: false, note: "sem payload",
-                              entrySec: nil, peakSec: nil, anchorOk: false)
+                              entrySec: nil, baseSec: nil, peakSec: nil, anchorOk: false)
     }
     printPayload(p, into: rep)
 
@@ -383,15 +391,16 @@ func runScenario(_ title: String, _ phases: [Phase], seed: UInt64,
     rep.line(String(format: "  baseline (início da janela) detetado  : %5ds%@", baseSec,
                     dBase.map { String(format: "   (%+ds vs entrada)", $0) } ?? ""))
 
-    // Pico bem ancorado se cair na janela de transição real ± margem.
+    // Ancoragem correta = o BASELINE (início da janela) cai junto ao momento real
+    // da transição (rua → entrada do parque): entre `lead` antes e `lag` depois.
     let anchorOk: Bool
-    if let e = entrySec, let pk = peakSec {
-        let lo = e - anchorMarginS
-        let hi = (parkedSec ?? e) + anchorMarginS
-        anchorOk = pk >= lo && pk <= hi
-        rep.line(String(format: "  → pico em %ds, janela válida [%ds..%ds]  → %@",
-                        pk, lo, hi,
-                        anchorOk ? "ANCORAGEM OK ✅" : "MAL-ANCORADO ❌ (pico falso na rua)"))
+    if let e = entrySec {
+        let lo = e - baselineLeadMaxS
+        let hi = e + baselineLagMaxS
+        anchorOk = baseSec >= lo && baseSec <= hi
+        rep.line(String(format: "  → baseline %+ds vs entrada (ok [%+ds..%+ds])  → %@",
+                        baseSec - e, -baselineLeadMaxS, baselineLagMaxS,
+                        anchorOk ? "ANCORAGEM OK ✅" : "MAL-ANCORADO ❌"))
     } else {
         anchorOk = false
     }
@@ -399,7 +408,7 @@ func runScenario(_ title: String, _ phases: [Phase], seed: UInt64,
     return ScenarioResult(title: title, expectedDelta: expectedDelta,
                           obtainedDelta: obtainedDelta, passed: passed,
                           note: passed ? "" : String(format: "erro %+.3f hPa", errAbs),
-                          entrySec: entrySec, peakSec: peakSec, anchorOk: anchorOk)
+                          entrySec: entrySec, baseSec: baseSec, peakSec: peakSec, anchorOk: anchorOk)
 }
 
 // Despeja as amostras cruas geradas (1 Hz) — o que cada sensor "viu" por segundo.
@@ -466,15 +475,15 @@ func runAll() {
         s.count >= w ? s : s + String(repeating: " ", count: w - s.count)
     }
     rep.line("\n\(sep)\n  RESUMO — Δ pressão + ancoragem do baseline\n\(sep)")
-    rep.line("  \(pad("cenário", 52))  esperada   obtida   pressão   entrada  pico   ancoragem")
+    rep.line("  \(pad("cenário", 52))  esperada   obtida   pressão   entrada baseline  ancoragem")
     for r in results {
         let estado = r.passed ? "PASS ✅" : "FALHOU ❌"
         let ent = r.entrySec.map { "\($0)s" } ?? "n/d"
-        let pk  = r.peakSec.map { "\($0)s" } ?? "n/d"
+        let bs  = r.baseSec.map { "\($0)s" } ?? "n/d"
         let anc = r.anchorOk ? "OK ✅" : "ERRADA ❌"
-        rep.line(String(format: "  %@  %+8.3f  %+8.3f  %@  %6@ %6@  %@",
+        rep.line(String(format: "  %@  %+8.3f  %+8.3f  %@  %6@  %6@   %@",
                         pad(r.title, 52), r.expectedDelta, r.obtainedDelta,
-                        pad(estado, 8), ent, pk, anc))
+                        pad(estado, 8), ent, bs, anc))
     }
 
     // Grava o ficheiro e imprime só o resumo no terminal.
@@ -494,10 +503,10 @@ func runAll() {
         let mark = r.passed ? "✅" : "❌"
         let anc  = r.anchorOk ? "ancoragem OK" : "ANCORAGEM ERRADA"
         let ent  = r.entrySec.map { "\($0)s" } ?? "n/d"
-        let pk   = r.peakSec.map { "\($0)s" } ?? "n/d"
-        print(String(format: "  %@ %@  (Δp esp %+.3f / obt %+.3f hPa | entrada %@ vs pico %@ → %@)",
-                     mark, r.title, r.expectedDelta, r.obtainedDelta, ent, pk, anc))
+        let bs   = r.baseSec.map { "\($0)s" } ?? "n/d"
+        print(String(format: "  %@ %@  (Δp esp %+.3f / obt %+.3f hPa | entrada %@ vs baseline %@ → %@)",
+                     mark, r.title, r.expectedDelta, r.obtainedDelta, ent, bs, anc))
     }
     print("\n\(passedCount)/\(results.count) cenários com Δ pressão na tolerância (\(pressureToleranceHpa) hPa).")
-    print("\(anchoredCount)/\(results.count) cenários com baseline bem ancorado (pico na janela de transição real ±\(anchorMarginS)s).")
+    print("\(anchoredCount)/\(results.count) cenários com baseline junto à entrada real (−\(baselineLeadMaxS)s..+\(baselineLagMaxS)s).")
 }
