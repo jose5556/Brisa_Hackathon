@@ -71,11 +71,11 @@ final class SensorViewModel: ObservableObject {
             lastScore = scoring
 
             let window: SensorWindow
-            if let startMs = scoring.bestTimestampMs {
+            if let startMs = scoring.windowStartMs {
                 window = buffer.sliced(fromMs: startMs)
                 let durS = Double(buffer.gpsReadings.last!.timestampMs - startMs) / 1000.0
-                print(String(format: "[Score] melhor tick @%lld score=%.2f → janela de %.0fs",
-                             startMs, scoring.bestScore, durS))
+                print(String(format: "[Score] pico @%lld score=%.2f → baseline @%lld → janela de %.0fs",
+                             scoring.bestTimestampMs ?? startMs, scoring.bestScore, startMs, durS))
             } else {
                 window = collector.getCurrentWindow()        // fallback: 30s fixo
                 print("[Score] nenhum tick passou o gate — fallback janela 30s")

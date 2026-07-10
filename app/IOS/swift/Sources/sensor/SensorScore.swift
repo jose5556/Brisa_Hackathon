@@ -1,15 +1,5 @@
 import Foundation
 
-// ── Scoring por tick ──────────────────────────────────
-// Calcula, sobre um buffer de amostras, um "score de transição" por tick (~1 Hz)
-// usando a fusão de 4 sinais: GPS accuracy, GPS speed, magnetómetro e pressão.
-// A pressão contribui de forma opcional (0 se o barómetro não tiver leituras),
-// para não anular o tick em dispositivos sem barómetro.
-//
-// O tick de score mais alto marca o INÍCIO da janela de captura: é o momento,
-// ainda em rua válida, em que os sensores mais variaram. A janela vai daí até
-// ao instante do "Analisar" (última leitura do buffer).
-//
 // Passos (alinhados com a especificação):
 //   1. Δ de cada sensor vs leitura de ~5 s atrás (rateMs).
 //   2. Gate: velocidade > minSpeedMps E GPS com sinal — senão score = 0.
@@ -18,11 +8,12 @@ import Foundation
 //   5. Peso de cada sensor (1× para já).
 //   6. Somar as 3 contribuições → score bruto do tick.
 //   7. EMA: suaviza com o tick anterior (α = 0.5 → (raw + anterior) / 2).
-//   8. (no ViewModel) o tick de maior score vira o início da janela.
+//   8. (no ViewModel) o baseline do tick de maior score (~10 s antes) vira o início da janela.
 
 struct ScoredTick {
     let timestampMs: Int64
     let gated: Bool        // passou o gate de rua (GPS + velocidade)?
+    let clean: Bool        // vizinhança sem excesso de gate-off (Passo 2b)?
 
     // Variação bruta de cada sensor neste tick (unidades físicas).
     let dAcc:   Double     // m
@@ -38,10 +29,14 @@ struct ScoredTick {
 
     let rawScore: Double   // soma dos 4 contributos (antes da EMA)
     let score:    Double   // score suavizado (EMA)
+
+    let recency:       Double   // peso de recência ∈ [0,1] (idade face ao fim)
+    let weightedScore: Double   // score × recência — é este que decide o pico
 }
 
 struct WindowScore {
-    let bestTimestampMs: Int64?    // início da janela (tick de maior score), nil se nenhum válido
+    let bestTimestampMs: Int64?    // pico da variação (tick de maior score), nil se nenhum válido
+    let windowStartMs: Int64?      // início da janela: baseline comparado com o pico (~rateMs antes)
     let bestScore: Double
     let ticks: [ScoredTick]        // série completa, para logging/calibração
 }
@@ -52,20 +47,49 @@ extension SensorWindow {
     struct ScoreParams {
         var rateMs:      Int64  = 10_000   // janela de variação (Passo 1)
         var minSpeedMps: Double = 0.5     // gate de rua (Passo 2)
+        var gateOffWindowMs: Int64  = 7_000   // janela ± à volta do tick
+        var maxGateOffFrac:  Double = 0.50     // fração máxima de gate-off tolerada
         var deadband:    Double = 0.3     // em σ: abaixo disto → 0 (Passo 4)
-        var cap:         Double = 3.0     // em σ: tecto por sensor (Passo 4)
-        var weightAcc:      Double = 1.0  // pesos (Passo 5)
+        var cap:         Double = 5.0     // em σ: tecto por sensor (Passo 4)
+        var weightAcc:      Double = 1.2  // pesos (Passo 5)
         var weightSpeed:    Double = 1.0
-        var weightMag:      Double = 1.0
+        var weightMag:      Double = 0.6
         var weightPressure: Double = 1.0
         var emaAlpha:       Double = 0.5  // suavização (Passo 7)
+        var baselineQuietFrac:     Double = 0.30    // fração do score do pico
+        var baselineQuietFloor:    Double = 1.5     // piso absoluto do limiar
+        var baselineMaxLookbackMs: Int64  = 30_000  // recuo máximo a partir do pico
+
+        // ── Peso por recência (Passo 8) ──────────────────────────────────────
+        var recencyEnabled:      Bool   = true
+        var recencyPlateauStartMs: Int64 = 20_000    // 20 s antes do fim
+        var recencyPlateauEndMs:   Int64 = 140_000   // 2 min e 42s antes do fim
+        var recencyTauMs:          Double = 60_000   // decaimento além do planalto
+        var recencyNearWeight:     Double = 0.5      // peso no instante do fim (idade 0)
+    }
+
+    /// Peso de recência de um tick, dado a sua idade (fim do buffer − t) em ms.
+    /// Trapézio com planalto [start, end] + rampa de subida antes e decaimento
+    /// exponencial depois. Devolve 1 se a recência estiver desligada.
+    private static func recencyWeight(ageMs: Int64, _ p: ScoreParams) -> Double {
+        guard p.recencyEnabled else { return 1 }
+        let age = Double(max(0, ageMs))
+        let start = Double(p.recencyPlateauStartMs)
+        let end   = Double(p.recencyPlateauEndMs)
+        if age < start {
+            // Rampa: nearWeight (idade 0) → 1 (idade start).
+            let f = start > 0 ? age / start : 1
+            return p.recencyNearWeight + (1 - p.recencyNearWeight) * f
+        }
+        if age <= end { return 1 }
+        return exp(-(age - end) / p.recencyTauMs)   // decaimento para o passado
     }
 
     /// Percorre o buffer e devolve o score por tick + o tick de maior score.
     /// A grelha de ticks são as leituras GPS (~1 Hz), que já trazem velocidade e sinal.
     func computeScore(params: ScoreParams = .init()) -> WindowScore {
         guard !gpsReadings.isEmpty else {
-            return WindowScore(bestTimestampMs: nil, bestScore: 0, ticks: [])
+            return WindowScore(bestTimestampMs: nil, windowStartMs: nil, bestScore: 0, ticks: [])
         }
 
         // ── Passo 1: Δ bruto de cada sensor por leitura ──────
@@ -110,12 +134,31 @@ extension SensorWindow {
             ))
         }
 
-        // ── Passo 3: σ de cada sensor, medido só sobre os ticks gated ──
-        let gatedRaws = raws.filter { $0.gated }
-        let sigAcc   = Self.std(gatedRaws.map { $0.dAcc })
-        let sigSpeed = Self.std(gatedRaws.map { $0.dSpeed })
-        let sigMag   = Self.std(gatedRaws.map { $0.dMag })
-        let sigPress = Self.std(gatedRaws.map { $0.dPress })
+        // ── Passo 2b: vizinhança de gate ──
+        // Fração de ticks SEM gate na janela ±gateOffWindowMs à volta de `t`.
+        // Percorre os raws (já cronológicos, ~1 Hz); n é pequeno, O(n²) é barato.
+        func gateOffFrac(around t: Int64) -> Double {
+            let lo = t - params.gateOffWindowMs
+            let hi = t + params.gateOffWindowMs
+            var total = 0, off = 0
+            for r in raws where r.t >= lo && r.t <= hi {
+                total += 1
+                if !r.gated { off += 1 }
+            }
+            return total > 0 ? Double(off) / Double(total) : 0
+        }
+        // "clean" = passou o gate E a vizinhança tem gate-off ≤ limiar.
+        // É esta condição — não o gate isolado — que autoriza um tick a pontuar.
+        let cleanFlags = raws.map { $0.gated && gateOffFrac(around: $0.t) <= params.maxGateOffFrac }
+
+        // ── Passo 3: σ de cada sensor, medido só sobre os ticks que vão pontuar ──
+        // (gated + vizinhança limpa) — assim o ruído do subterrâneo não infla o σ
+        // e não abafa as variações legítimas de rua.
+        let cleanRaws = zip(raws, cleanFlags).filter { $0.1 }.map { $0.0 }
+        let sigAcc   = Self.std(cleanRaws.map { $0.dAcc })
+        let sigSpeed = Self.std(cleanRaws.map { $0.dSpeed })
+        let sigMag   = Self.std(cleanRaws.map { $0.dMag })
+        let sigPress = Self.std(cleanRaws.map { $0.dPress })
 
         // Passos 4+5: normaliza (σ), deadband, tecto e peso.
         func contrib(_ delta: Double, _ sigma: Double, _ weight: Double) -> Double {
@@ -131,31 +174,67 @@ extension SensorWindow {
         var bestScore = 0.0
         var ticks: [ScoredTick] = []
 
-        for r in raws {   // já em ordem cronológica
-            // Contributo por sensor — 0 se a leitura não passou o gate.
-            let sAcc   = r.gated ? contrib(r.dAcc,   sigAcc,   params.weightAcc)      : 0
-            let sSpeed = r.gated ? contrib(r.dSpeed, sigSpeed, params.weightSpeed)    : 0
-            let sMag   = r.gated ? contrib(r.dMag,   sigMag,   params.weightMag)      : 0
-            let sPress = r.gated ? contrib(r.dPress, sigPress, params.weightPressure) : 0
+        // Fim do buffer = instante do "Analisar" (referência para a idade/recência).
+        let endTs = gpsReadings.last!.timestampMs
+
+        for (idx, r) in raws.enumerated() {   // já em ordem cronológica
+            // Só pontua se passou o gate E a vizinhança está limpa (Passo 2b).
+            let clean = cleanFlags[idx]
+
+            // Contributo por sensor — 0 se o tick não é "clean".
+            let sAcc   = clean ? contrib(r.dAcc,   sigAcc,   params.weightAcc)      : 0
+            let sSpeed = clean ? contrib(r.dSpeed, sigSpeed, params.weightSpeed)    : 0
+            let sMag   = clean ? contrib(r.dMag,   sigMag,   params.weightMag)      : 0
+            let sPress = clean ? contrib(r.dPress, sigPress, params.weightPressure) : 0
             let rawScore = sAcc + sSpeed + sMag + sPress
 
             ema = params.emaAlpha * rawScore + (1 - params.emaAlpha) * ema
 
+            // Passo 8: pondera o score suavizado pela recência (idade face ao fim).
+            let recency = Self.recencyWeight(ageMs: endTs - r.t, params)
+            let weighted = ema * recency
+
             ticks.append(ScoredTick(
-                timestampMs: r.t, gated: r.gated,
+                timestampMs: r.t, gated: r.gated, clean: clean,
                 dAcc: r.dAcc, dSpeed: r.dSpeed, dMag: r.dMag, dPress: r.dPress,
                 sAcc: sAcc, sSpeed: sSpeed, sMag: sMag, sPress: sPress,
-                rawScore: rawScore, score: ema
+                rawScore: rawScore, score: ema,
+                recency: recency, weightedScore: weighted
             ))
 
-            // O início da janela tem de ser um tick de rua válida.
-            if r.gated, ema > bestScore {
-                bestScore = ema
+            // O pico é o tick de rua VÁLIDA E LIMPA com maior score ponderado.
+            if clean, weighted > bestScore {
+                bestScore = weighted
                 bestTs = r.t
             }
         }
 
-        return WindowScore(bestTimestampMs: bestTs, bestScore: bestScore, ticks: ticks)
+        // A janela começa no baseline: recuamos do pico até à última calmaria.
+        // Percorremos os ticks para trás a partir do pico e paramos no primeiro
+        // tick cujo score < limiar (relativo ao pico + piso absoluto). Esse tick
+        // "calmo" é o início da janela — a rua antes da transição. O recuo está
+        // limitado a baselineMaxLookbackMs; se nunca encontrarmos calmaria dentro
+        // desse limite, o baseline é o tick mais recuado permitido. Clampado à
+        // leitura mais antiga do buffer para não apontar para antes dos dados.
+        let earliestTs = gpsReadings.first?.timestampMs
+        let windowStart: Int64?
+        if let bestTs = bestTs,
+           let bestIdx = ticks.firstIndex(where: { $0.timestampMs == bestTs }) {
+            let threshold = max(params.baselineQuietFloor,
+                                params.baselineQuietFrac * ticks[bestIdx].score)
+            let minTs = bestTs - params.baselineMaxLookbackMs
+            var startIdx = bestIdx
+            var i = bestIdx - 1
+            while i >= 0, ticks[i].timestampMs >= minTs {
+                startIdx = i
+                if ticks[i].score < threshold { break }   // chegámos à calmaria
+                i -= 1
+            }
+            windowStart = max(ticks[startIdx].timestampMs, earliestTs ?? ticks[startIdx].timestampMs)
+        } else {
+            windowStart = nil
+        }
+        return WindowScore(bestTimestampMs: bestTs, windowStartMs: windowStart, bestScore: bestScore, ticks: ticks)
     }
 
     /// Recorta o buffer a partir de `fromMs` (inclusive) — usado para a janela [pico → agora].

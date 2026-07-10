@@ -213,7 +213,7 @@ struct ContentView: View {
                     .foregroundColor(.white.opacity(0.7))
                     .kerning(2)
             }
-            .padding(.vertical, 28)
+            .padding(.vertical, 16)
 
             // Botões DEV e DATA no canto superior direito
             VStack {
@@ -355,8 +355,7 @@ struct ResultCard: View {
     let response: PredictionResponse
 
     private var shouldCharge: Bool {
-        response.finalDecision.lowercased().contains("don't") == false
-            && response.finalDecision.lowercased().contains("nao") == false
+        response.finalDecision.lowercased().contains("no_charge") == false
     }
 
     var body: some View {
@@ -378,10 +377,10 @@ struct ResultCard: View {
             ResultRow(label: "Confiança para cobrar",
                       value: String(format: "%.2f%%", response.confidenceToCharge * 100))
             ResultRow(label: "Distância até zona paga",
-                      value: String(format: "%.0f m", response.distanceToZoneM))
+                      value: response.distanceToZoneM.map { String(format: "%.0f m", $0) } ?? "—")
             ResultRow(label: "Session ID", value: response.sessionId)
             ResultRow(label: "Payload ID", value: response.payloadId)
-            ResultRow(label: "Inference ID", value: response.inferenceId)
+            ResultRow(label: "Inference ID", value: response.inferenceId ?? "—")
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)

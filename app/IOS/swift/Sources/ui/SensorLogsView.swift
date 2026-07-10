@@ -19,7 +19,8 @@ struct SensorLogsView: View {
 
                     // ── Secção: Score ─────────────────
                     if let score = viewModel.lastScore {
-                        let start    = score.bestTimestampMs
+                        let peak     = score.bestTimestampMs             // tick de maior score (destaque)
+                        let start    = score.windowStartMs               // baseline: início real da janela
                         let allTicks = score.ticks
                         let refMs    = allTicks.last?.timestampMs ?? 0    // t0 = leitura mais recente (botão)
                         let durationS: Double = {
@@ -27,10 +28,18 @@ struct SensorLogsView: View {
                             return viewModel.lastPayload?.windowDurationS ?? 0
                         }()
 
+                        // t-Xs relativo à leitura mais recente (nil → "—")
+                        let rel: (Int64?) -> String = { ts in
+                            guard let ts = ts else { return "—" }
+                            return String(format: "t-%.0fs", Double(refMs - ts) / 1000.0)
+                        }
+
                         LogSection(title: "SCORE", badge: "\(allTicks.count) leituras\(start == nil ? " · sem gate" : "")") {
 
-                            // Baseline = tick de maior score (início da janela)
-                            LogSubSection(title: "BASELINE (maior score)", badge: String(format: "score %.2f", score.bestScore)) {
+                            // Ancoragem: PICO (maior score) + BASELINE (recuo até à calmaria)
+                            LogSubSection(title: "ANCORAGEM (pico + baseline)", badge: String(format: "score %.2f", score.bestScore)) {
+                                DataRow(key: "pico_@",            value: "\(rel(peak))  ◄ maior score")
+                                DataRow(key: "baseline_@",        value: "\(rel(start))  ◄ início da janela")
                                 DataRow(key: "best_score",        value: String(format: "%.2f", score.bestScore))
                                 DataRow(key: "window_duration_s", value: String(format: "%.1f s", durationS))
                                 if let g = viewModel.lastWindow?.gpsReadings.first {
@@ -52,7 +61,9 @@ struct SensorLogsView: View {
                                     DataRow(key: "—", value: "sem leituras")
                                 } else {
                                     ForEach(Array(allTicks.enumerated()).reversed(), id: \.offset) { _, tick in
-                                        ScoreTickRow(tick: tick, refMs: refMs, isBest: tick.timestampMs == start)
+                                        ScoreTickRow(tick: tick, refMs: refMs,
+                                                     isBest: tick.timestampMs == peak,
+                                                     isBaseline: tick.timestampMs == start)
                                     }
                                 }
                             }
@@ -151,10 +162,10 @@ struct SensorLogsView: View {
                                 DataRow(key: "ml1_classification",       value: response.ml1Classification)
                                 DataRow(key: "ml1_non_street_confidence", value: String(format: "%.4f", response.ml1NonStreetConfidence))
                                 DataRow(key: "confidence_to_charge",     value: String(format: "%.4f", response.confidenceToCharge))
-                                DataRow(key: "distance_to_zone_m",       value: String(format: "%.1f", response.distanceToZoneM))
+                                DataRow(key: "distance_to_zone_m",       value: response.distanceToZoneM.map { String(format: "%.1f", $0) } ?? "—")
                                 DataRow(key: "session_id",               value: response.sessionId)
                                 DataRow(key: "payload_id",               value: response.payloadId)
-                                DataRow(key: "inference_id",             value: response.inferenceId)
+                                DataRow(key: "inference_id",             value: response.inferenceId ?? "—")
 
                                 // Barra de confiança (não-rua)
                                 HStack(spacing: 8) {
@@ -361,20 +372,33 @@ struct ScoreTickRow: View {
     let tick: ScoredTick
     let refMs: Int64
     let isBest: Bool
+    var isBaseline: Bool = false
+
+    // Cor de destaque: pico (verde) tem prioridade sobre baseline (azul).
+    private static let baselineColor = Color(red: 0.49, green: 0.78, blue: 0.89)
+    private var accent: Color? {
+        if isBest { return .vvGreen }
+        if isBaseline { return Self.baselineColor }
+        return nil
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
             HStack(spacing: 6) {
                 Text(String(format: "t-%.0fs", Double(refMs - tick.timestampMs) / 1000.0))
-                    .foregroundColor(isBest ? .vvGreen : Color(white: 0.6))
+                    .foregroundColor(accent ?? Color(white: 0.6))
                 if isBest {
-                    Text("◄ baseline").foregroundColor(.vvGreen)
-                } else if !tick.gated {
+                    Text("◄ PICO").foregroundColor(.vvGreen)
+                }
+                if isBaseline {
+                    Text("◄ baseline").foregroundColor(Self.baselineColor)
+                }
+                if !tick.gated && !isBest && !isBaseline {
                     Text("gate off").foregroundColor(.orange)
                 }
                 Spacer()
                 Text(String(format: "raw %.2f · ema %.2f", tick.rawScore, tick.score))
-                    .foregroundColor(isBest ? .vvGreen : Color(white: 0.88))
+                    .foregroundColor(accent ?? Color(white: 0.88))
             }
             .font(.system(size: 10, weight: .bold, design: .monospaced))
 
