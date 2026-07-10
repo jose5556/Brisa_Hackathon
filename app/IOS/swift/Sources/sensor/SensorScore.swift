@@ -63,7 +63,7 @@ extension SensorWindow {
         // ── Peso por recência (Passo 8) ──────────────────────────────────────
         var recencyEnabled:      Bool   = true
         var recencyPlateauStartMs: Int64 = 20_000    // 20 s antes do fim
-        var recencyPlateauEndMs:   Int64 = 140_000   // 2 min antes do fim
+        var recencyPlateauEndMs:   Int64 = 140_000   // 2 min e 42s antes do fim
         var recencyTauMs:          Double = 60_000   // decaimento além do planalto
         var recencyNearWeight:     Double = 0.5      // peso no instante do fim (idade 0)
     }
