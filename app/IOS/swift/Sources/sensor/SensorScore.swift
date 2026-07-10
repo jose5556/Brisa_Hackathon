@@ -43,34 +43,32 @@ struct WindowScore {
 
 extension SensorWindow {
 
-    /// Parâmetros de calibração do score. Valores iniciais — a rever com dados de campo.
+    /// Parâmetros de calibração do score.
     struct ScoreParams {
         var rateMs:      Int64  = 10_000   // janela de variação (Passo 1)
         var minSpeedMps: Double = 0.5     // gate de rua (Passo 2)
         var gateOffWindowMs: Int64  = 7_000   // janela ± à volta do tick
         var maxGateOffFrac:  Double = 0.50     // fração máxima de gate-off tolerada
         var deadband:    Double = 0.3     // em σ: abaixo disto → 0 (Passo 4)
-        var cap:         Double = 5.0     // em σ: tecto por sensor (Passo 4)
-        var weightAcc:      Double = 1.2  // pesos (Passo 5)
+        var cap:         Double = 5.0     // em σ: teto por sensor
+        var weightAcc:      Double = 1.0  // pesos (Passo 5)
         var weightSpeed:    Double = 1.0
-        var weightMag:      Double = 0.6
+        var weightMag:      Double = 0.5
         var weightPressure: Double = 1.0
         var emaAlpha:       Double = 0.5  // suavização (Passo 7)
-        var baselineQuietFrac:     Double = 0.30    // fração do score do pico
+        var baselineQuietFrac:     Double = 0.3   // fração do score do pico
         var baselineQuietFloor:    Double = 1.5     // piso absoluto do limiar
-        var baselineMaxLookbackMs: Int64  = 30_000  // recuo máximo a partir do pico
+        var baselineMaxLookbackMs: Int64  = 30_000  // recuo máximo
 
         // ── Peso por recência (Passo 8) ──────────────────────────────────────
         var recencyEnabled:      Bool   = true
         var recencyPlateauStartMs: Int64 = 20_000    // 20 s antes do fim
         var recencyPlateauEndMs:   Int64 = 140_000   // 2 min e 42s antes do fim
         var recencyTauMs:          Double = 60_000   // decaimento além do planalto
-        var recencyNearWeight:     Double = 0.5      // peso no instante do fim (idade 0)
+        var recencyNearWeight:     Double = 0.5      // peso no instante do fim
     }
 
-    /// Peso de recência de um tick, dado a sua idade (fim do buffer − t) em ms.
-    /// Trapézio com planalto [start, end] + rampa de subida antes e decaimento
-    /// exponencial depois. Devolve 1 se a recência estiver desligada.
+    /// Peso de recência de um tick, dado a sua idade
     private static func recencyWeight(ageMs: Int64, _ p: ScoreParams) -> Double {
         guard p.recencyEnabled else { return 1 }
         let age = Double(max(0, ageMs))
