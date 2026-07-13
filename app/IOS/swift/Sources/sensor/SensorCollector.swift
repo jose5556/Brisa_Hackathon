@@ -319,12 +319,14 @@ extension SensorCollector: CLLocationManagerDelegate {
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        // Regista leitura sem sinal quando o GPS falha
+        // Regista leitura sem sinal quando o GPS falha, preservando as
+        // coordenadas da última posição conhecida (se existir) para que o
+        // payload possa usar a última localização válida.
         let noSignal = GpsReading(
-            latitude:       0,
-            longitude:      0,
+            latitude:       lastLocation?.coordinate.latitude  ?? 0,
+            longitude:      lastLocation?.coordinate.longitude ?? 0,
             accuracyMeters: 999,
-            altitudeMeters: 0,
+            altitudeMeters: lastLocation?.altitude ?? 0,
             speedMps:       0,
             hasSignal:      false
         )
