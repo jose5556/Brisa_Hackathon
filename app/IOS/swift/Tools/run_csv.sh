@@ -8,10 +8,21 @@
 #   Uso:
 #     ./Tools/run_csv.sh                       # usa o CSV por omissão em Tools/data
 #     ./Tools/run_csv.sh Tools/data/xpto.csv   # usa o CSV indicado
+#
+#   Flags (passadas ao runner):
+#     --api            envia o payload da janela recortada à API e imprime a resposta
+#     --ip <x.x.x.x>   IP do servidor da API (por omissão o de ServerConfig)
+#
+#   Ex.:  ./Tools/run_csv.sh Tools/data/underground.csv --api --ip 100.121.113.91
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-CSV="${1:-Tools/data/street.csv}"
+# 1.º argumento é o CSV se não começar por "-"; o resto são flags do runner.
+CSV="Tools/data/street3.csv"
+if [[ $# -ge 1 && "${1:0:1}" != "-" ]]; then
+    CSV="$1"
+    shift
+fi
 
 if [[ ! -f "$CSV" ]]; then
     echo "⚠ CSV não encontrado: $CSV" >&2
@@ -25,6 +36,7 @@ OUT="$(mktemp -d)/brisa-csv"
 swiftc Tools/ScoreCsvRunner.swift \
        Sources/data/SensorData.swift \
        Sources/sensor/SensorScore.swift \
+       Sources/network/SensorApiClient.swift \
        -o "$OUT"
 
-"$OUT" "$CSV"
+"$OUT" "$CSV" "$@"

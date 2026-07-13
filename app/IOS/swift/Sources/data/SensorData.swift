@@ -171,8 +171,16 @@ extension SensorWindow {
         let windowDurationS = windowEnd.timeIntervalSince(windowStart)
 
         // ── GPS ───────────────────────────────────────
-        let lastGps    = gpsReadings.last!
-        let accuracies = gpsReadings.map { Double($0.accuracyMeters) }
+        // lat/lon do payload: última leitura com sinal; se o sinal se perdeu
+        // no fim da janela, usa a última leitura com coordenadas conhecidas.
+        let lastGps    = gpsReadings.last(where: { $0.hasSignal })
+            ?? gpsReadings.last(where: { $0.latitude != 0 || $0.longitude != 0 })
+            ?? gpsReadings.last!
+        // Accuracy só sobre leituras com sinal: sem sinal a accuracy é
+        // sentinela (999 / -1) e distorceria mean/delta. A perda de sinal
+        // em si já é capturada pelo gnss_lost_ratio.
+        let accuracies = gpsReadings.filter { $0.hasSignal }
+                                    .map { Double($0.accuracyMeters) }
         let signalLost = gpsReadings.filter { !$0.hasSignal }.count
 
         let gpsAccuracyMean  = accuracies.mean

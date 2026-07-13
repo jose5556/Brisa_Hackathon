@@ -16,11 +16,15 @@ import Foundation
 // Última linha (fora do cabeçalho de dados):
 //   EXPECTED <segundo>
 //
-// Compilar e correr (a partir de app/IOS/swift):
+// Compilar e correr (ou usar ./Tools/run_csv.sh, que aceita as mesmas flags):
 //   swiftc Tools/ScoreCsvRunner.swift \
 //          Sources/data/SensorData.swift \
 //          Sources/sensor/SensorScore.swift \
+//          Sources/network/SensorApiClient.swift \
 //          -o /tmp/brisa-csv && /tmp/brisa-csv Tools/data/<ficheiro>.csv
+//
+// Flags: [--api] [--ip x.x.x.x]
+//   --api envia o payload da janela recortada à API e imprime a resposta.
 // ─────────────────────────────────────────────────────────────────────────────
 
 struct ParsedCsv {
@@ -100,11 +104,30 @@ func parseCsv(_ path: String) -> ParsedCsv? {
 
 @main
 struct ScoreCsvRunnerMain {
-    static func main() {
+    static func main() async {
+        // Argumentos: [caminho.csv] [--api] [--ip x.x.x.x]
         let args = CommandLine.arguments
-        let path = args.count >= 2
-            ? args[1]
-            : "Tools/data/brisa_sensor_data_1783611218.csv"
+        var path = "Tools/data/above.csv"
+        var useApi = false
+        var i = 1
+        while i < args.count {
+            switch args[i] {
+            case "--api":
+                useApi = true
+            case "--ip":
+                i += 1
+                guard i < args.count else { print("⚠ --ip requer um valor"); exit(1) }
+                ServerConfig.ip = args[i]
+            default:
+                guard !args[i].hasPrefix("--") else {
+                    print("⚠ argumento desconhecido: \(args[i])")
+                    print("  uso: [caminho.csv] [--api] [--ip x.x.x.x]")
+                    exit(1)
+                }
+                path = args[i]
+            }
+            i += 1
+        }
 
         guard let parsed = parseCsv(path) else {
             print("⚠ Falha a interpretar o CSV.")
@@ -150,6 +173,43 @@ struct ScoreCsvRunnerMain {
             print("  ⚠ Nenhum tick passou o gate (rua) → sem baseline/pico.")
             print("    Todos os scores ficaram a 0. Causa provável: gps_speed_mps = 0")
             print("    em toda a captura, logo o gate `speed > minSpeedMps` nunca ativa.")
+        }
+
+        // ── Envia o payload ao modelo (só com --api) ──────────────────────────
+        // Mesma janela que iria para a API em produção: recortada a partir do
+        // baseline detetado; sem baseline, cai no fallback (janela completa).
+        if useApi {
+            let sliced = scoring.windowStartMs.map { window.sliced(fromMs: $0) } ?? window
+            guard var payload = sliced.toPayload() else {
+                print("\n⚠ Sem payload (janela vazia) — nada enviado à API.")
+                return
+            }
+            // O backend exige `city` (no telemóvel vem do reverse-geocoding do
+            // CLGeocoder); nos CSVs não há cidade, por isso usa-se "Porto".
+            if payload.city == nil { payload.city = "Porto" }
+
+            print("\n── Payload enviado à API ──")
+            print(String(format: "  gnss_accuracy_mean   : %.2f m", payload.gpsAccuracyMean))
+            print(String(format: "  gnss_accuracy_delta  : %.2f m", payload.gpsAccuracyDelta))
+            print(String(format: "  gnss_lost_ratio      : %.2f", payload.gpsLostRatio))
+            print(String(format: "  pressure_hpa (final) : %.2f hPa", payload.pressureHpa))
+            print(String(format: "  pressure_delta       : %.3f hPa", payload.pressureDeltaHpa))
+            print(String(format: "  altitude_delta       : %.2f m", payload.altitudeChangeM))
+            print(String(format: "  magnetic_field_mean  : %.2f µT", payload.magneticFieldMean))
+            print(String(format: "  magnetic_field_delta : %.2f µT", payload.magneticFieldDelta))
+            print(String(format: "  window_duration_s    : %.0f s", payload.windowDurationS))
+
+            print("\n── Resposta do modelo (POST /parking-events/analyze) ──")
+            do {
+                let r = try await SensorApiClient.shared.predictVerticalContext(payload: payload)
+                print("  ml1_classification    : \(r.ml1Classification)")
+                print(String(format: "  non_street_confidence : %.3f", r.ml1NonStreetConfidence))
+                print("  final_decision        : \(r.finalDecision)")
+                print(String(format: "  confidence_to_charge  : %.3f", r.confidenceToCharge))
+                if let reason = r.spatialAbortReason { print("  spatial_abort_reason  : \(reason)") }
+            } catch {
+                print("  ⚠ falha: \(error.localizedDescription)")
+            }
         }
     }
 }

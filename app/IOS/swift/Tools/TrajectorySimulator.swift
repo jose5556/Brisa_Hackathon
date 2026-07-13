@@ -17,11 +17,17 @@ import Foundation
 // Cada cenário valida a Δ de pressão OBTIDA (payload, com ruído) contra a Δ de
 // pressão ESPERADA (curva de pressão sem ruído, sobre a mesma janela recortada).
 //
-// Compilar e correr (a partir de app/IOS/swift):
+// Compilar e correr (ou usar ./Tools/run_trajectory_sim.sh, que aceita as
+// mesmas flags):
 //   swiftc Tools/TrajectorySimulator.swift \
 //          Sources/data/SensorData.swift \
 //          Sources/sensor/SensorScore.swift \
+//          Sources/network/SensorApiClient.swift \
 //          -o /tmp/brisa-sim && /tmp/brisa-sim
+//
+// Flags: [--api] [--scenario A..N] [--seed 1..5] [--ip x.x.x.x]
+//   --api envia o payload de cada janela à API e regista a resposta no report.
+//   Um único envio:  --api --scenario A --seed 1
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── PRNG determinístico (reprodutível entre execuções) ───────────────────────
@@ -361,7 +367,7 @@ let baselineLagMaxS  = 5
 let pressureToleranceHpa = 0.08   // tolerância aceitável entre esperada e obtida
 
 func runScenario(_ title: String, _ phases: [Phase], seed: UInt64,
-                 into rep: Reporter) -> ScenarioResult {
+                 useApi: Bool, into rep: Reporter) async -> ScenarioResult {
     let base: Int64 = 1_700_000_000_000   // epoch ms fixo (reprodutível)
     let sim = buildWindow(baseMs: base, phases: phases, seed: seed,
                           startLat: porto.lat, startLon: porto.lon)
@@ -419,6 +425,28 @@ func runScenario(_ title: String, _ phases: [Phase], seed: UInt64,
                               entrySec: nil, baseSec: nil, peakSec: nil, anchorOk: false)
     }
     printPayload(p, into: rep)
+
+    // ── Envia o payload ao modelo (só com --api) e regista a resposta ──
+    if useApi {
+        // O backend exige `city` (no telemóvel vem do reverse-geocoding do
+        // CLGeocoder); aqui os cenários partem todos do Porto.
+        var apiPayload = p
+        if apiPayload.city == nil { apiPayload.city = "Porto" }
+        rep.line("\n── Resposta do modelo (POST /parking-events/analyze) ──")
+        do {
+            let r = try await SensorApiClient.shared.predictVerticalContext(payload: apiPayload)
+            rep.line("  ml1_classification    : \(r.ml1Classification)")
+            rep.line(String(format: "  non_street_confidence : %.3f", r.ml1NonStreetConfidence))
+            rep.line("  final_decision        : \(r.finalDecision)")
+            rep.line(String(format: "  confidence_to_charge  : %.3f", r.confidenceToCharge))
+            if let reason = r.spatialAbortReason { rep.line("  spatial_abort_reason  : \(reason)") }
+            print("🌐 \(title)")
+            print("   → \(r.finalDecision)  (ml1=\(r.ml1Classification), conf=\(String(format: "%.3f", r.confidenceToCharge)))")
+        } catch {
+            rep.line("  ⚠ falha: \(error.localizedDescription)")
+            print("🌐 \(title)\n   → ⚠ API falhou: \(error.localizedDescription)")
+        }
+    }
 
     // ── Validação da pressão: esperada (sem ruído) vs obtida (payload) ──
     // pressureDeltaHpa = pressão_inicial − pressão_final (sobe ao descer → +).
@@ -529,37 +557,124 @@ func printPayload(_ p: SensorPayload, into rep: Reporter) {
     rep.line(String(format: "  window_duration_s    : %.0f s", p.windowDurationS))
 }
 
+// ── Argumentos CLI ───────────────────────────────────────────────────────────
+//   --api              envia o payload de cada janela à API (POST /parking-events/analyze)
+//   --scenario <A..N>  corre só esse cenário
+//   --seed <1..5>      corre só essa repetição (1 = primeiro seed do cenário)
+//   --ip <x.x.x.x>     IP do servidor da API (por omissão o de ServerConfig)
+//
+// Um único envio:  --api --scenario A --seed 1
+struct CliOptions {
+    var useApi = false
+    var scenarioLetter: String? = nil
+    var run: Int? = nil
+}
+
+func parseCli() -> CliOptions {
+    var opts = CliOptions()
+    let args = Array(CommandLine.arguments.dropFirst())
+    var i = 0
+    func value(_ flag: String) -> String {
+        i += 1
+        guard i < args.count else {
+            print("⚠ \(flag) requer um valor"); exit(1)
+        }
+        return args[i]
+    }
+    while i < args.count {
+        switch args[i] {
+        case "--api":
+            opts.useApi = true
+        case "--scenario":
+            opts.scenarioLetter = value("--scenario").uppercased()
+        case "--seed":
+            guard let n = Int(value("--seed")), (1...runsPerScenario).contains(n) else {
+                print("⚠ --seed tem de ser um número entre 1 e \(runsPerScenario)"); exit(1)
+            }
+            opts.run = n
+        case "--ip":
+            ServerConfig.ip = value("--ip")
+        default:
+            print("⚠ argumento desconhecido: \(args[i])")
+            print("  uso: [--api] [--scenario A..N] [--seed 1..\(runsPerScenario)] [--ip x.x.x.x]")
+            exit(1)
+        }
+        i += 1
+    }
+    return opts
+}
+
 // ── Main ─────────────────────────────────────────────────────────────────────
 // Usa @main (em vez de código solto no top-level) porque este ficheiro é
 // compilado em conjunto com outros — só um main.swift aceitaria statements soltos.
 @main
 struct TrajectorySimulatorMain {
-    static func main() { runAll() }
+    static func main() async { await runAll() }
 }
 
-func runAll() {
+// Nº de repetições (seeds diferentes) por cenário.
+let runsPerScenario = 5
+
+func runAll() async {
+    let opts = parseCli()
     let rep = Reporter()
     rep.line("# Trajectory Simulator — Report")
     rep.line("Gerado em: \(Date().iso8601)")
     rep.line("Reutiliza o código de produção (SensorScore.computeScore + SensorWindow.toPayload).")
     rep.line("Δ pressão: 'esperada' = curva sem ruído sobre a janela recortada; 'obtida' = payload com ruído.")
+    rep.line("Cada cenário corre \(runsPerScenario)× com seeds diferentes (variações de ruído).")
 
-    let results = [
-        runScenario("CENÁRIO A — Porto → estacionamento → DESCE ao piso -1", scenarioDown1,   seed: 42,  into: rep),
-        runScenario("CENÁRIO B — Porto → estacionamento → SOBE ao piso 3",   scenarioUp3,     seed: 99,  into: rep),
-        runScenario("CENÁRIO C — Porto → estacionamento → DESCE ao piso -3", scenarioDown3,   seed: 7,   into: rep),
-        runScenario("CENÁRIO D — Porto → estacionamento → SOBE ao piso 5",   scenarioUp5,     seed: 123, into: rep),
-        runScenario("CENÁRIO E — Porto → parque à SUPERFÍCIE (sem piso)",    scenarioSurface, seed: 314, into: rep),
-        runScenario("CENÁRIO F — Porto → estacionamento → SOBE ao piso 2",   scenarioUp2,     seed: 271, into: rep),
-        runScenario("CENÁRIO G — rampa CAÓTICA (GPS errático + mag extremo) → piso -2", scenarioNoisyRamp, seed: 555, into: rep),
-        runScenario("CENÁRIO H — Avenida → parque à SUPERFÍCIE (sem piso)",           scenarioSurfaceAvenida, seed: 808, into: rep),
-        runScenario("CENÁRIO I — SUPERFÍCIE junto a prédio RUIDOSO (falso positivo?)", scenarioSurfaceNoisy,   seed: 616, into: rep),
-        runScenario("CENÁRIO J — SOBE ao piso +1 (estrutura aberta / não ruidosa)",   scenarioUp1,            seed: 111, into: rep),
-        runScenario("CENÁRIO K — SOBE ao piso +1 (prédio RUIDOSO betão/metal)",       scenarioUp1Noisy,       seed: 222, into: rep),
-        runScenario("CENÁRIO L — Trânsito → DESCE ao piso -1 (não ruidoso)",          scenarioDown1Calm,      seed: 333, into: rep),
-        runScenario("CENÁRIO M — DESCE ao piso -1 (prédio RUIDOSO)",                  scenarioDown1Noisy,     seed: 444, into: rep),
-        runScenario("CENÁRIO N — Avenida → DESCE ao piso -2 (não ruidoso / arejado)", scenarioDown2Calm,      seed: 666, into: rep),
+    // Definição dos cenários: (letra, título, fases, seed base). Cada um corre
+    // `runsPerScenario` vezes, derivando um seed distinto por repetição.
+    let scenarios: [(letter: String, title: String, phases: [Phase], seed: UInt64)] = [
+        ("A", "CENÁRIO A — Porto → estacionamento → DESCE ao piso -1", scenarioDown1,   42),
+        ("B", "CENÁRIO B — Porto → estacionamento → SOBE ao piso 3",   scenarioUp3,     99),
+        ("C", "CENÁRIO C — Porto → estacionamento → DESCE ao piso -3", scenarioDown3,   7),
+        ("D", "CENÁRIO D — Porto → estacionamento → SOBE ao piso 5",   scenarioUp5,     123),
+        ("E", "CENÁRIO E — Porto → parque à SUPERFÍCIE (sem piso)",    scenarioSurface, 314),
+        ("F", "CENÁRIO F — Porto → estacionamento → SOBE ao piso 2",   scenarioUp2,     271),
+        ("G", "CENÁRIO G — rampa CAÓTICA (GPS errático + mag extremo) → piso -2", scenarioNoisyRamp, 555),
+        ("H", "CENÁRIO H — Avenida → parque à SUPERFÍCIE (sem piso)",           scenarioSurfaceAvenida, 808),
+        ("I", "CENÁRIO I — SUPERFÍCIE junto a prédio RUIDOSO (falso positivo?)", scenarioSurfaceNoisy,   616),
+        ("J", "CENÁRIO J — SOBE ao piso +1 (estrutura aberta / não ruidosa)",   scenarioUp1,            111),
+        ("K", "CENÁRIO K — SOBE ao piso +1 (prédio RUIDOSO betão/metal)",       scenarioUp1Noisy,       222),
+        ("L", "CENÁRIO L — Trânsito → DESCE ao piso -1 (não ruidoso)",          scenarioDown1Calm,      333),
+        ("M", "CENÁRIO M — DESCE ao piso -1 (prédio RUIDOSO)",                  scenarioDown1Noisy,     444),
+        ("N", "CENÁRIO N — Avenida → DESCE ao piso -2 (não ruidoso / arejado)", scenarioDown2Calm,      666),
     ]
+
+    // Filtros: --scenario limita à letra; --seed limita à repetição.
+    let selected: [(letter: String, title: String, phases: [Phase], seed: UInt64)]
+    if let l = opts.scenarioLetter {
+        selected = scenarios.filter { $0.letter == l }
+        guard !selected.isEmpty else {
+            print("⚠ Cenário '\(l)' não existe (A..\(scenarios.last!.letter)).")
+            return
+        }
+    } else {
+        selected = scenarios
+    }
+    if opts.scenarioLetter != nil || opts.run != nil {
+        rep.line("Filtros: cenário=\(opts.scenarioLetter ?? "todos")  seed=\(opts.run.map(String.init) ?? "todos")")
+    }
+    if opts.useApi {
+        rep.line("Payloads enviados à API: POST \(ServerConfig.baseURL)parking-events/analyze (--api).")
+    }
+
+    // Deriva `runsPerScenario` seeds distintos a partir do seed base do cenário.
+    func seeds(for base: UInt64) -> [UInt64] {
+        (0..<UInt64(runsPerScenario)).map { base &+ $0 &* 0x9E3779B97F4A7C15 }
+    }
+
+    var results: [ScenarioResult] = []
+    for sc in selected {
+        for (i, seed) in seeds(for: sc.seed).enumerated() {
+            if let r = opts.run, r != i + 1 { continue }
+            let title = "\(sc.title)  [run \(i + 1)/\(runsPerScenario), seed=\(seed)]"
+            results.append(await runScenario(title, sc.phases, seed: seed,
+                                             useApi: opts.useApi, into: rep))
+        }
+    }
 
     // ── Resumo (no fim do report + no terminal) ──────────────────────────────
     let sep = String(repeating: "═", count: 78)
@@ -588,17 +703,20 @@ func runAll() {
         print(rep.text)
     }
 
-    print("Resumo — Δ pressão + ancoragem do baseline:")
-    let passedCount = results.filter { $0.passed }.count
-    let anchoredCount = results.filter { $0.anchorOk }.count
-    for r in results {
-        let mark = r.passed ? "✅" : "❌"
-        let anc  = r.anchorOk ? "ancoragem OK" : "ANCORAGEM ERRADA"
-        let ent  = r.entrySec.map { "\($0)s" } ?? "n/d"
-        let bs   = r.baseSec.map { "\($0)s" } ?? "n/d"
-        print(String(format: "  %@ %@  (Δp esp %+.3f / obt %+.3f hPa | entrada %@ vs baseline %@ → %@)",
-                     mark, r.title, r.expectedDelta, r.obtainedDelta, ent, bs, anc))
+    // Resumo AGREGADO por cenário: quantas das `runsPerScenario` repetições
+    // passam (Δ pressão) e ancoram bem. Agrupa pelo título base do cenário.
+    print("Resumo por cenário (\(runsPerScenario) seeds cada):")
+    for sc in selected {
+        let runs = results.filter { $0.title.hasPrefix(sc.title) }
+        let passed   = runs.filter { $0.passed }.count
+        let anchored = runs.filter { $0.anchorOk }.count
+        let mark = passed == runs.count ? "" : (passed == 0 ? "❌" : "⚠️")
+        print(String(format: "  %@ %@  → pressão %d/%d | street baseline %d/%d",
+                     mark, sc.title, passed, runs.count, anchored, runs.count))
     }
-    print("\n\(passedCount)/\(results.count) cenários com Δ pressão na tolerância (\(pressureToleranceHpa) hPa).")
-    print("\(anchoredCount)/\(results.count) cenários com baseline junto à entrada real (−\(baselineLeadMaxS)s..+\(baselineLagMaxS)s).")
+
+    //let passedCount = results.filter { $0.passed }.count
+    let anchoredCount = results.filter { $0.anchorOk }.count
+    //print("\n\(passedCount)/\(results.count) execuções com Δ pressão na tolerância (\(pressureToleranceHpa) hPa).")
+    print("\n\(anchoredCount)/\(results.count) execuções com baseline próximo a entrada real (−\(baselineLeadMaxS)s..+\(baselineLagMaxS)s).")
 }

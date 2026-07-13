@@ -3,12 +3,15 @@ import Foundation
 // Passos (alinhados com a especificação):
 //   1. Δ de cada sensor vs leitura de ~5 s atrás (rateMs).
 //   2. Gate: velocidade > minSpeedMps E GPS com sinal — senão score = 0.
-//   3. Normalizar cada Δ pela sua variação típica (σ no próprio buffer).
+//   3. Normalizar cada Δ pela sua variação típica (σ no próprio buffer,
+//      com piso físico por sensor para o ruído de rua não pontuar).
 //   4. Deadband (variações ínfimas → 0) e tecto (variações enormes → cap).
 //   5. Peso de cada sensor (1× para já).
 //   6. Somar as 3 contribuições → score bruto do tick.
 //   7. EMA: suaviza com o tick anterior (α = 0.5 → (raw + anterior) / 2).
 //   8. (no ViewModel) o baseline do tick de maior score (~10 s antes) vira o início da janela.
+//   8b. Validação do pico: fraco ou seguido de cruzeiro de rua retomado
+//       (rua, pouca variação) → sem transição → janela curta ancorada no fim.
 
 struct ScoredTick {
     let timestampMs: Int64
@@ -43,34 +46,54 @@ struct WindowScore {
 
 extension SensorWindow {
 
-    /// Parâmetros de calibração do score. Valores iniciais — a rever com dados de campo.
+    /// Parâmetros de calibração do score.
     struct ScoreParams {
         var rateMs:      Int64  = 10_000   // janela de variação (Passo 1)
         var minSpeedMps: Double = 0.5     // gate de rua (Passo 2)
         var gateOffWindowMs: Int64  = 7_000   // janela ± à volta do tick
         var maxGateOffFrac:  Double = 0.50     // fração máxima de gate-off tolerada
         var deadband:    Double = 0.3     // em σ: abaixo disto → 0 (Passo 4)
-        var cap:         Double = 5.0     // em σ: tecto por sensor (Passo 4)
-        var weightAcc:      Double = 1.2  // pesos (Passo 5)
-        var weightSpeed:    Double = 1.0
-        var weightMag:      Double = 0.6
-        var weightPressure: Double = 1.0
+        var cap:         Double = 5.0     // em σ: teto por sensor
+
+        // ── Pisos físicos do σ (Passo 3b) ────────────────────────────────────
+        // O σ medido no próprio buffer torna o score relativo: numa rua calma
+        // o ruído ínfimo é normalizado como se fosse variação real (σ pequeno
+        // → delta/σ grande). O piso dá escala física ao σ: variações abaixo
+        // dele são ruído de sensor, não sinal de transição.
+        var sigmaFloorAcc:      Double = 2.0    // m
+        var sigmaFloorSpeed:    Double = 0.5    // m/s
+        var sigmaFloorMag:      Double = 5.0    // µT
+        var sigmaFloorPressure: Double = 0.10   // hPa
+
+        // ── Validação do pico (Passo 8b) ─────────────────────────────────────
+        // Um pico só é uma transição se for significativo E terminal (o carro
+        // estaciona pouco depois). Pico fraco, ou seguido de condução de
+        // CRUZEIRO retomada (velocidade de rua — numa rampa de parque nunca se
+        // passa de ~2 m/s), é ruído de condução — a janela passa a ser curta,
+        // ancorada no fim do buffer.
+        var minPeakScore:         Double = 3.0     // wscore mínimo do pico
+        var cruiseSpeedMps:       Double = 3.0     // velocidade que só existe em rua
+        var maxCruiseAfterPeakMs: Int64  = 20_000  // cruzeiro máximo tolerado após o pico
+        var noTransitionWindowMs: Int64  = 10_000  // janela curta quando não há transição
+        var baselinePadMs:        Int64  = 2_000   // margem antes da calmaria encontrada
+        var weightAcc:      Double = 0.9  // pesos (Passo 5)
+        var weightSpeed:    Double = 1.1
+        var weightMag:      Double = 0.3
+        var weightPressure: Double = 0.7
         var emaAlpha:       Double = 0.5  // suavização (Passo 7)
-        var baselineQuietFrac:     Double = 0.30    // fração do score do pico
+        var baselineQuietFrac:     Double = 0.3   // fração do score do pico
         var baselineQuietFloor:    Double = 1.5     // piso absoluto do limiar
-        var baselineMaxLookbackMs: Int64  = 30_000  // recuo máximo a partir do pico
+        var baselineMaxLookbackMs: Int64  = 30_000  // recuo máximo
 
         // ── Peso por recência (Passo 8) ──────────────────────────────────────
         var recencyEnabled:      Bool   = true
         var recencyPlateauStartMs: Int64 = 20_000    // 20 s antes do fim
         var recencyPlateauEndMs:   Int64 = 140_000   // 2 min e 42s antes do fim
-        var recencyTauMs:          Double = 60_000   // decaimento além do planalto
-        var recencyNearWeight:     Double = 0.5      // peso no instante do fim (idade 0)
+        var recencyTauMs:          Double = 50_000   // decaimento além do planalto
+        var recencyNearWeight:     Double = 0.5      // peso no instante do fim
     }
 
-    /// Peso de recência de um tick, dado a sua idade (fim do buffer − t) em ms.
-    /// Trapézio com planalto [start, end] + rampa de subida antes e decaimento
-    /// exponencial depois. Devolve 1 se a recência estiver desligada.
+    /// Peso de recência de um tick, dado a sua idade
     private static func recencyWeight(ageMs: Int64, _ p: ScoreParams) -> Double {
         guard p.recencyEnabled else { return 1 }
         let age = Double(max(0, ageMs))
@@ -99,6 +122,7 @@ extension SensorWindow {
         struct RawTick {
             let t: Int64
             let gated: Bool
+            let speed: Double   // velocidade GPS do tick (para o Passo 8b)
             let dAcc: Double; let dSpeed: Double; let dMag: Double; let dPress: Double
         }
         var raws: [RawTick] = []
@@ -127,6 +151,7 @@ extension SensorWindow {
             raws.append(RawTick(
                 t:      t,
                 gated:  gated,
+                speed:  g.speedMps,
                 dAcc:   abs(Double(g.accuracyMeters) - accPast),
                 dSpeed: abs(g.speedMps - speedPast),
                 dMag:   dMag,
@@ -154,11 +179,13 @@ extension SensorWindow {
         // ── Passo 3: σ de cada sensor, medido só sobre os ticks que vão pontuar ──
         // (gated + vizinhança limpa) — assim o ruído do subterrâneo não infla o σ
         // e não abafa as variações legítimas de rua.
+        // Passo 3b: o σ nunca desce abaixo do piso físico — num buffer calmo
+        // (rua sem transição) é o piso que manda, e o ruído deixa de pontuar.
         let cleanRaws = zip(raws, cleanFlags).filter { $0.1 }.map { $0.0 }
-        let sigAcc   = Self.std(cleanRaws.map { $0.dAcc })
-        let sigSpeed = Self.std(cleanRaws.map { $0.dSpeed })
-        let sigMag   = Self.std(cleanRaws.map { $0.dMag })
-        let sigPress = Self.std(cleanRaws.map { $0.dPress })
+        let sigAcc   = max(Self.std(cleanRaws.map { $0.dAcc }),   params.sigmaFloorAcc)
+        let sigSpeed = max(Self.std(cleanRaws.map { $0.dSpeed }), params.sigmaFloorSpeed)
+        let sigMag   = max(Self.std(cleanRaws.map { $0.dMag }),   params.sigmaFloorMag)
+        let sigPress = max(Self.std(cleanRaws.map { $0.dPress }), params.sigmaFloorPressure)
 
         // Passos 4+5: normaliza (σ), deadband, tecto e peso.
         func contrib(_ delta: Double, _ sigma: Double, _ weight: Double) -> Double {
@@ -220,17 +247,40 @@ extension SensorWindow {
         let windowStart: Int64?
         if let bestTs = bestTs,
            let bestIdx = ticks.firstIndex(where: { $0.timestampMs == bestTs }) {
-            let threshold = max(params.baselineQuietFloor,
-                                params.baselineQuietFrac * ticks[bestIdx].score)
-            let minTs = bestTs - params.baselineMaxLookbackMs
-            var startIdx = bestIdx
-            var i = bestIdx - 1
-            while i >= 0, ticks[i].timestampMs >= minTs {
-                startIdx = i
-                if ticks[i].score < threshold { break }   // chegámos à calmaria
-                i -= 1
+            // Passo 8b: valida se o pico é mesmo uma transição TERMINAL.
+            // Depois de entrar num parque o carro nunca volta a andar a
+            // velocidade de rua (rampas/manobras ficam ≤ ~2 m/s). Se depois do
+            // pico ainda há condução de cruzeiro limpa prolongada, o pico foi
+            // ruído a meio da viagem — não transição. (raws e ticks estão
+            // alinhados por índice, ~1 Hz.)
+            var cruiseAfterMs: Int64 = 0
+            for i in (bestIdx + 1)..<raws.count
+            where cleanFlags[i] && raws[i].speed >= params.cruiseSpeedMps {
+                cruiseAfterMs += 1_000
             }
-            windowStart = max(ticks[startIdx].timestampMs, earliestTs ?? ticks[startIdx].timestampMs)
+            let isTransition = bestScore >= params.minPeakScore
+                            && cruiseAfterMs <= params.maxCruiseAfterPeakMs
+            if !isTransition {
+                // Sem transição (rua / pouca variação): janela curta ancorada
+                // no fim — apanha só a manobra final de estacionamento.
+                windowStart = max(endTs - params.noTransitionWindowMs,
+                                  earliestTs ?? endTs - params.noTransitionWindowMs)
+            } else {
+                let threshold = max(params.baselineQuietFloor,
+                                    params.baselineQuietFrac * ticks[bestIdx].score)
+                let minTs = bestTs - params.baselineMaxLookbackMs
+                var startIdx = bestIdx
+                var i = bestIdx - 1
+                while i >= 0, ticks[i].timestampMs >= minTs {
+                    startIdx = i
+                    if ticks[i].score < threshold { break }   // chegámos à calmaria
+                    i -= 1
+                }
+                // Pad: recua uma margem pequena antes da calmaria, para a
+                // janela incluir sempre um pouco de rua antes da transição.
+                windowStart = max(ticks[startIdx].timestampMs - params.baselinePadMs,
+                                  earliestTs ?? ticks[startIdx].timestampMs)
+            }
         } else {
             windowStart = nil
         }

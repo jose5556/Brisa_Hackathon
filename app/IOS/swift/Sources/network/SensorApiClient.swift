@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking   // URLSession em Linux (no-op em iOS/macOS)
+#endif
 
 // ── Configuration ─────────────────────────────────────
 // O IP do servidor é editável em runtime (ecrã de configuração) e

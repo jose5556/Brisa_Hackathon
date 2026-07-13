@@ -17,8 +17,13 @@ final class SensorRepository {
     // leitura barométrica da janela (pressão de rua, antes de o veículo parar).
     func buildPayload(window: SensorWindow) async throws -> SensorPayload {
 
-        // ── 1. Garante que há sinal GPS na última leitura ──
-        guard let lastGps = window.gpsReadings.last, lastGps.hasSignal else {
+        // ── 1. Última leitura GPS válida ──
+        // Prefere a última leitura com sinal; se o sinal se perdeu no fim da
+        // janela (túnel/garagem), recua para a última leitura com coordenadas
+        // conhecidas em vez de bloquear o envio. Só falha se a janela inteira
+        // não tiver nenhuma posição utilizável.
+        guard let lastGps = window.gpsReadings.last(where: { $0.hasSignal })
+                ?? window.gpsReadings.last(where: { $0.latitude != 0 || $0.longitude != 0 }) else {
             throw SensorRepositoryError.noGpsSignal
         }
 
