@@ -74,7 +74,7 @@ extension SensorWindow {
         var minPeakScore:         Double = 3.0     // wscore mínimo do pico
         var cruiseSpeedMps:       Double = 3.0     // velocidade que só existe em rua
         var maxCruiseAfterPeakMs: Int64  = 20_000  // cruzeiro máximo tolerado após o pico
-        var noTransitionWindowMs: Int64  = 20_000  // janela curta quando não há transição
+        var noTransitionWindowMs: Int64  = 10_000  // janela curta quando não há transição
         var baselinePadMs:        Int64  = 2_000   // margem antes da calmaria encontrada
         var weightAcc:      Double = 0.9  // pesos (Passo 5)
         var weightSpeed:    Double = 1.1

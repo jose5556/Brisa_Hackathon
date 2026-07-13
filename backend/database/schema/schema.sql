@@ -32,7 +32,7 @@ CREATE TYPE city_code AS ENUM (
     'Lisboa',
     'Oeiras',
     'Espinho',
-    'Vila nova de Gaia',
+    'Vila Nova de Gaia',
     'Matosinhos',
     'Maia',
     'Arouca'
