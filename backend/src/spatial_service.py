@@ -39,37 +39,38 @@ def get_spatial_context(
         return _no_zone_result(reason="invalid_coordinates")
     
     try:
-        result = db.execute(
-            text(
-                """
-                SELECT 
-                    id AS zone_id,
-                    ST_Within(
-                        ST_SetSRID(ST_MakePoint(:lon, :lat), 4326),
-                        geom
-                    )                               AS inside_zone,
-                    ST_Distance(
-                        ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography,
-                        geom::geography
-                    ) AS distance_to_zone_m
-                FROM paid_zones
-                WHERE city = CAST(:city AS city_code) AND is_active = TRUE
-                AND ST_DWithin(
+        with db.begin_nested():
+            result = db.execute(
+                text(
+                    """
+                    SELECT 
+                        id AS zone_id,
+                        ST_Within(
+                            ST_SetSRID(ST_MakePoint(:lon, :lat), 4326),
+                            geom
+                        )                               AS inside_zone,
+                        ST_Distance(
                             ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography,
-                            geom::geography,
-                            :query
-                )
-                ORDER BY distance_to_zone_m ASC
-                LIMIT 1
-                """
-            ),
-            {
-                "lon": longitude,
-                "lat": latitude,
-                "city": city,
-                "query": SEARCH_QUERY,
-            }
-        ).mappings().first()
+                            geom::geography
+                        ) AS distance_to_zone_m
+                    FROM paid_zones
+                    WHERE city = CAST(:city AS city_code) AND is_active = TRUE
+                    AND ST_DWithin(
+                                ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography,
+                                geom::geography,
+                                :query
+                    )
+                    ORDER BY distance_to_zone_m ASC
+                    LIMIT 1
+                    """
+                ),
+                {
+                    "lon": longitude,
+                    "lat": latitude,
+                    "city": city,
+                    "query": SEARCH_QUERY,
+                }
+            ).mappings().first()
 
     except Exception:
         log.exception(

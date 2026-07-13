@@ -392,7 +392,6 @@ def analyze_and_store_parking_event(
                 session_id, reason,
                 spatial["distance_to_zone_m"] or -1,
             )
-            db.rollback()  # clear any failed sub-transaction from PostGIS
             update_session_status(db, session_id, SPATIAL_ABORT)
             db.commit()
             return {
