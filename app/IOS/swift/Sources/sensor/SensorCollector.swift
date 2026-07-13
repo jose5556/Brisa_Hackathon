@@ -39,6 +39,11 @@ final class SensorCollector: NSObject {
     // Uma captura manual mais longa que isto fica automaticamente limitada a 180s.
     static let maxWindowMs: Int64 = 180_000
 
+    // Idade máxima de um fix GPS para ainda contar como "com sinal".
+    // O GPS urbano tem hiatos normais de 1-3s; acima disto assume-se perda
+    // de sinal (túnel/garagem) e as re-amostras passam a hasSignal = false.
+    static let staleFixThresholdS: TimeInterval = 8
+
     // ── CLLocationManager (GPS) ───────────────────────
     private let locationManager = CLLocationManager()
     private var lastLocation: CLLocation?     // última posição conhecida (para re-amostragem)
@@ -158,6 +163,9 @@ final class SensorCollector: NSObject {
     /// Timer a 1 Hz: se o Core Location parar de reportar (ex: imóvel / localização
     /// simulada estática), re-amostra a última posição conhecida para manter a
     /// janela deslizante sempre populada.
+    /// Se o fix estiver obsoleto (> staleFixThresholdS), a re-amostra é gravada
+    /// com hasSignal = false — o Core Location silencia quando perde sinal, e
+    /// sem isto as re-amostras mascaravam a perda como sinal válido.
     private func startGpsResampleTimer() {
         gpsResampleTimer?.invalidate()
         gpsResampleTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
@@ -165,20 +173,24 @@ final class SensorCollector: NSObject {
             // Só re-amostra se não chegou uma leitura "real" no último segundo,
             // para não duplicar quando o GPS está mesmo a reportar.
             if self.nowMs() - self.lastGpsAppendMs >= 1000 {
-                self.appendGps(from: location)
+                let fixAgeS = Date().timeIntervalSince(location.timestamp)
+                let isStale = fixAgeS > Self.staleFixThresholdS
+                self.appendGps(from: location, signalOverride: isStale ? false : nil)
             }
         }
     }
 
     /// Constrói um GpsReading a partir de um CLLocation e guarda-o (thread-safe).
-    private func appendGps(from location: CLLocation) {
+    /// `signalOverride` força o valor de hasSignal (usado pelo resample timer
+    /// para marcar re-amostras de fixes obsoletos como sem sinal).
+    private func appendGps(from location: CLLocation, signalOverride: Bool? = nil) {
         let reading = GpsReading(
             latitude:       location.coordinate.latitude,
             longitude:      location.coordinate.longitude,
             accuracyMeters: Float(location.horizontalAccuracy),
             altitudeMeters: location.altitude,
             speedMps:       max(location.speed, 0),   // speed pode ser -1 se inválido no iOS
-            hasSignal:      location.horizontalAccuracy >= 0   // accuracy negativa = sinal inválido
+            hasSignal:      signalOverride ?? (location.horizontalAccuracy >= 0)   // accuracy negativa = sinal inválido
         )
 
         lock.lock()
