@@ -413,4 +413,4 @@ elapsed_s,timestamp,pressure_hpa,gps_accuracy_m,gps_speed_mps,mag_ut
 412,2026-07-13T13:20:10Z,1003.25,903.44,0.00,32.94
 412,2026-07-13T13:20:11Z,1003.27,1219.41,0.00,31.30
 
-EXPECTED 360
+EXPECTED 300
