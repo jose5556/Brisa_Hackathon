@@ -210,16 +210,11 @@ CREATE TABLE training_labels (
     label_source        TEXT NOT NULL,   -- 'correct' | 'incorrect'
     labelled_by         UUID REFERENCES users(id),          -- NULL if automatic
 
-    -- Confirmed geometry (may differ slightly from GPS)
-    confirmed_location  GEOMETRY(POINT, 4326),
-
     -- For model error analysis
     model_was_correct   BOOLEAN,        -- comparison with final_decision
-    error_type          TEXT,           -- 'false_positive' | 'false_negative' | NULL
 
     -- Quality flags for filtering during training
     is_valid            BOOLEAN NOT NULL DEFAULT TRUE,
-    exclusion_reason    TEXT,           -- reason if is_valid = FALSE
 
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
