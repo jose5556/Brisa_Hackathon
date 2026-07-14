@@ -481,13 +481,7 @@ def store_user_feedback(
     payload_id: str,
     feedback: str,
 ) -> dict[str, Any]:
-    """
-    Persiste feedback de utilizador sobre a decisao final do pipeline.
 
-    feedback:
-      - "correct"   -> o utilizador concorda com a decisao
-      - "incorrect" -> o utilizador discorda da decisao
-    """
     normalized_feedback = str(feedback).strip().lower()
     if normalized_feedback not in {"correct", "incorrect"}:
         raise ValueError("Invalid feedback. Expected 'correct' or 'incorrect'.")

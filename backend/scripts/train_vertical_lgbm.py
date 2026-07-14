@@ -351,7 +351,7 @@ def save_artifact(
     Extra fields for operational use:
         bundle["label_encoder"]        — to decode integer predictions
         bundle["non_street_threshold"] — recommended operating threshold
-        bundle["metrics"]              — val set metrics for the model registry
+        bundle["metrics"]              — validation-set metrics for monitoring
         bundle["classes"]              — class names in encoder order
     """
     bundle = {
@@ -365,10 +365,8 @@ def save_artifact(
     joblib.dump(bundle, out_path)
     print(f"\n✓ Model artifact saved → {out_path}")
 
-    # Also save a JSON summary for the model_versions table
+    # Also save a JSON summary with artifact and validation metadata
     summary = {
-        "model_name": "vertical_classifier",
-        "version_tag": "v1.0.0-lgbm",
         "artifact_path": str(out_path),
         "feature_columns": FEATURE_COLS,
         "classes": list(le.classes_),
@@ -471,7 +469,7 @@ def main(train_path: Path, val_path: Path, out_path: Path):
     # 7. SHAP feature importances
     shap_analysis(model, X_val)
 
-    # 8. Collect metrics for model registry
+    # 8. Collect validation metrics
     metrics = {
         "macro_f1":    eval_results["macro_f1"],
         "macro_roc_auc": eval_results["macro_roc_auc"],

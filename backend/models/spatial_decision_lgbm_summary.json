@@ -1,6 +1,4 @@
 {
-  "model_name": "spatial_classifier",
-  "version_tag": "v1.0.0-lgbm",
   "artifact_path": "/home/bruno/Desktop/SEA_ME/BRISA/Brisa_Hackathon/backend/models/spatial_decision_lgbm.joblib",
   "feature_names": [
     "ml1_non_street_confidence",
