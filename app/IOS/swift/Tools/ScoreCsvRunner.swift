@@ -84,7 +84,7 @@ func parseCsv(_ path: String) -> ParsedCsv? {
 
         // hasSignal não vem no CSV. Heurística: há sinal quando a precisão GPS é
         // válida (> 0). Nestas capturas paradas a precisão é ~5 m → sinal presente.
-        let hasSignal = acc > 0
+        let hasSignal = acc > 0 && acc < 100
 
         gps.append(GpsReading(
             latitude: 0, longitude: 0,

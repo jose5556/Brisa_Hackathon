@@ -18,7 +18,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 # 1.º argumento é o CSV se não começar por "-"; o resto são flags do runner.
-CSV="Tools/data/street3.csv"
+CSV="Tools/data/hellom_silo_auto.csv"
 if [[ $# -ge 1 && "${1:0:1}" != "-" ]]; then
     CSV="$1"
     shift
