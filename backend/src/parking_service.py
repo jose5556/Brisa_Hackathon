@@ -14,8 +14,18 @@ from src.spatial_ml_predict import predict_final_decision
 log = logging.getLogger(__name__)
 
 DEFAULT_PLATFORM = "ios"
-# Valid city codes — must match the city_code TEXT in schema.sql
-VALID_CITIES = {"Porto", "Lisboa", "Oeiras", "Espinho", "Vila Nova de Gaia", "Matosinhos", "Maia"}
+# Valid city codes - must match city_code enum in database/schema/schema.sql
+VALID_CITIES = {
+    "Porto",
+    "Lisboa",
+    "Oeiras",
+    "Espinho",
+    "Vila Nova de Gaia",
+    "Matosinhos",
+    "Maia",
+    "Arouca",
+}
+CITY_ALIASES = {city.casefold(): city for city in VALID_CITIES}
 
 # Pipeline abort reason codes, stored in inference_logs and returned in the
 # API response so the developer dashboard can filter by abort type.
@@ -24,7 +34,7 @@ SPATIAL_ABORT  = "spatial_abort"    # street_level but outside paid zone
 NO_CHARGE      = "no_charge"        # Model 2: charge_confidence below threshold
 CHARGE         = "charge"           # All checks passed, initiate billing
 
-def _resolve_city(payload: dict[str, Any]) -> str:
+def _resolve_city(payload: dict[str, Any]) -> tuple[str, bool]:
     raw = payload.get("city")
     if not raw or not str(raw).strip():
         raise ValueError(
@@ -32,7 +42,14 @@ def _resolve_city(payload: dict[str, Any]) -> str:
             "Send the city name as received from CLGeocoder, "
             "e.g. 'Porto', 'Vila Nova de Gaia', 'Viana do Castelo'."
         )
-    return str(raw).strip()
+    normalized_city = " ".join(str(raw).strip().split())
+    canonical_city = CITY_ALIASES.get(normalized_city.casefold())
+    if canonical_city:
+        return canonical_city, True
+
+    # Unsupported city names should not fail the endpoint.
+    # They are treated as "no map available", returning no_charge.
+    return normalized_city, False
 
 
 def get_or_create_dev_user(db: Session, city: str) -> str:
@@ -350,7 +367,23 @@ def analyze_and_store_parking_event(
     payload: dict[str, Any],
 ) -> dict[str, Any]:
     try:
-        city = _resolve_city(payload)
+        city, is_supported_city = _resolve_city(payload)
+        if not is_supported_city:
+            log.info(
+                "SPATIAL_ABORT unsupported city without map city=%s",
+                city,
+            )
+            return {
+                "session_id": None,
+                "payload_id": None,
+                "inference_id": None,
+                "abort_code": SPATIAL_ABORT,
+                "spatial_reason": "unsupported_city_no_map",
+                "distance_to_zone_m": None,
+                "final_decision": NO_CHARGE,
+                "confidence_to_charge": 0.0,
+            }
+
         user_id = get_or_create_dev_user(db, city)
         session_id = create_parking_session(db, payload, user_id, city)
         payload_id = create_sensor_payload(db, session_id, payload)
@@ -438,6 +471,7 @@ def analyze_and_store_parking_event(
         }
     
     except ValueError as exc:
+        db.rollback()
         log.warning("Payload validation error: %s", exc)
         raise
 

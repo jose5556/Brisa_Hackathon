@@ -219,7 +219,6 @@ CREATE TABLE training_labels (
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_training_labels_geom ON training_labels USING GIST(confirmed_location);
 CREATE INDEX idx_training_labels_session ON training_labels(session_id);
 
 --============================================================

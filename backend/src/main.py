@@ -85,6 +85,9 @@ def predict(payload: dict[str, Any], db: Session = Depends(get_db)):
     try:
         return analyze_and_store_parking_event(db, payload)
 
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+
     except FileNotFoundError as error:
         raise HTTPException(status_code=500, detail=str(error))
 
@@ -102,6 +105,9 @@ def analyze_parking_event(
 ):
     try:
         return analyze_and_store_parking_event(db, payload)
+
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
 
     except FileNotFoundError as error:
         raise HTTPException(status_code=500, detail=str(error))

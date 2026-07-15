@@ -103,8 +103,23 @@ down:
 db-reset:
 	$(DOCKER_COMPOSE) down -v
 	$(DOCKER_COMPOSE) up -d
-	@until $(DOCKER_COMPOSE) exec -T db pg_isready -U parking_user -d parking_db >/dev/null 2>&1; do sleep 1; done
-	sleep 2
+	@echo "Waiting for PostgreSQL to stabilize..."
+	@ok=0; for i in $$(seq 1 120); do \
+		if $(DOCKER_COMPOSE) exec -T db psql -U parking_user -d parking_db -c "SELECT 1" >/dev/null 2>&1; then \
+			ok=$$((ok + 1)); \
+			if [ $$ok -ge 3 ]; then \
+				echo "PostgreSQL is stable and ready."; \
+				break; \
+			fi; \
+		else \
+			ok=0; \
+		fi; \
+		if [ $$i -eq 120 ]; then \
+			echo "Timed out waiting for PostgreSQL stability."; \
+			exit 1; \
+		fi; \
+		sleep 1; \
+	done
 	$(PYTHON_VENV) database/data_ingestion/geojson_loader.py
 
 db-shell:
