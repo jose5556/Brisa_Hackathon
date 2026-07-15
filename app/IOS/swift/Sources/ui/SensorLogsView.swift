@@ -196,7 +196,7 @@ struct SensorLogsView: View {
                             Text("Sem dados ainda")
                                 .font(.system(size: 13, design: .monospaced))
                                 .foregroundColor(.gray)
-                            Text("Volta à tela principal e carrega em ANALISAR AMBIENTE")
+                            Text("Volta à tela principal e carrega em ANALISAR")
                                 .font(.system(size: 11, design: .monospaced))
                                 .foregroundColor(Color(white: 0.35))
                                 .multilineTextAlignment(.center)
@@ -262,11 +262,6 @@ struct SensorLogsView: View {
                     } else {
                         RawRow(key: "—", value: "")
                     }
-                }
-
-                // IMU — desativado
-                RawSensorChip(name: "IMU", active: false) {
-                    RawRow(key: "N/A", value: "")
                 }
             }
         }

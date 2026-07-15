@@ -12,6 +12,7 @@ extension Color {
     static let vvCard       = Color.white
     static let vvBorder     = Color(red: 0.878, green: 0.929, blue: 0.878)  // #E0EDE0
     static let vvText       = Color(red: 0.102, green: 0.102, blue: 0.102)  // #1A1A1A
+    static let vvRed        = Color(red: 0.690, green: 0, blue: 0.125)      // #B00020
     static let vvMuted      = Color(red: 0.533, green: 0.533, blue: 0.533)  // #888888
 }
 
@@ -88,38 +89,6 @@ struct ContentView: View {
             VStack(spacing: 0) {
                 Divider()
                 VStack(spacing: 8) {
-
-                    // ── Janela dinâmica: Iniciar / Analisar ───
-                    HStack(spacing: 8) {
-                        // Iniciar (ou parar contagem)
-                        Button(action: {
-                            if viewModel.isManualCapture { viewModel.cancelManualCapture() }
-                            else { viewModel.startManualCapture() }
-                        }) {
-                            Text(viewModel.isManualCapture
-                                 ? "■  \(viewModel.manualElapsedS)s"
-                                 : "●  INICIAR")
-                                .font(.system(size: 13, weight: .bold))
-                                .foregroundColor(viewModel.isManualCapture ? .white : .vvGreenDark)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 40)
-                                .background(viewModel.isManualCapture ? Color.vvGreenDark : Color.vvGreenLight)
-                                .cornerRadius(10)
-                        }
-                        .disabled(isLoading)
-
-                        // Analisar ambiente (janela dinâmica)
-                        Button(action: { viewModel.analyzeManualWindow() }) {
-                            Text("ANALISAR AMBIENTE")
-                                .font(.system(size: 13, weight: .bold))
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 40)
-                                .background(viewModel.isManualCapture ? Color.vvGreen : Color.vvGreen.opacity(0.4))
-                                .cornerRadius(10)
-                        }
-                        .disabled(!viewModel.isManualCapture || isLoading)
-                    }
 
                     Button(action: {
                         viewModel.testDbConnection()   // teste rápido: imprime GET /db/health no console
@@ -365,22 +334,9 @@ struct ResultCard: View {
                 .foregroundColor(.vvMuted)
                 .kerning(1.5)
 
-            Text(response.finalDecision)
+            Text(shouldCharge ? "Cobrar" : "Não Cobrar")
                 .font(.system(size: 22, weight: .black))
-                .foregroundColor(shouldCharge ? .vvGreen : .vvText)
-
-            Divider().background(Color.vvBorder)
-
-            ResultRow(label: "Classificação", value: response.ml1Classification)
-            ResultRow(label: "Confiança de que é não rua",
-                      value: String(format: "%.1f%%", response.ml1NonStreetConfidence * 100))
-            ResultRow(label: "Confiança para cobrar",
-                      value: String(format: "%.2f%%", response.confidenceToCharge * 100))
-            ResultRow(label: "Distância até zona paga",
-                      value: response.distanceToZoneM.map { String(format: "%.0f m", $0) } ?? "—")
-            ResultRow(label: "Session ID", value: response.sessionId)
-            ResultRow(label: "Payload ID", value: response.payloadId)
-            ResultRow(label: "Inference ID", value: response.inferenceId ?? "—")
+                .foregroundColor(shouldCharge ? .vvGreen : .vvRed)
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -390,27 +346,6 @@ struct ResultCard: View {
             RoundedRectangle(cornerRadius: 14)
                 .stroke(Color.vvBorder, lineWidth: 1)
         )
-    }
-}
-
-// ── ResultRow ─────────────────────────────────────────
-private struct ResultRow: View {
-    let label: String
-    let value: String
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            Text(label)
-                .font(.system(size: 12))
-                .foregroundColor(.vvMuted)
-            Spacer(minLength: 8)
-            Text(value)
-                .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                .foregroundColor(.vvText)
-                .multilineTextAlignment(.trailing)
-                .lineLimit(1)
-                .truncationMode(.middle)
-        }
     }
 }
 

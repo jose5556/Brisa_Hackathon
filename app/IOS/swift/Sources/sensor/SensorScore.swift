@@ -1,7 +1,10 @@
 import Foundation
 
 // Passos (alinhados com a especificação):
-//   1. Δ de cada sensor vs leitura de ~5 s atrás (rateMs).
+//   1. Δ de cada sensor vs leitura de ~rateMs à frente. Velocidade e accuracy
+//      são direcionais: só pontuam se a velocidade DESCE ou a accuracy PIORA
+//      (sobe) até ao tick futuro — o sentido contrário (acelerar / GPS a
+//      melhorar) é retoma de rua e vale 0.
 //   2. Gate: velocidade > minSpeedMps E GPS com sinal — senão score = 0.
 //   3. Normalizar cada Δ pela sua variação típica (σ no próprio buffer,
 //      com piso físico por sensor para o ruído de rua não pontuar).
@@ -74,14 +77,21 @@ extension SensorWindow {
         var minPeakScore:         Double = 3.0     // wscore mínimo do pico
         var cruiseSpeedMps:       Double = 3.0     // velocidade que só existe em rua
         var maxCruiseAfterPeakMs: Int64  = 20_000  // cruzeiro máximo tolerado após o pico
-        var noTransitionWindowMs: Int64  = 10_000  // janela curta quando não há transição
+        // Se o cruzeiro RETOMA depois do pico, o pico disparou cedo (o carro
+        // ainda ia na rua) — só é transição se depois dele houver evidência de
+        // garagem: accuracy do GPS a degradar A SÉRIO face ao pico, ou perda
+        // de sinal. Travar/parar na rua também degrada a accuracy, mas pouco
+        // (~5 m); entrar num edifício degrada dezenas de metros ou mata o
+        // sinal. Sem evidência dessa ordem → janela curta ancorada no fim.
+        var minAccWorseAfterPeakM: Double = 5.0   // degradação mínima da accuracy
+        var noTransitionWindowMs: Int64  = 5_000  // janela curta quando não há transição
         var baselinePadMs:        Int64  = 2_000   // margem antes da calmaria encontrada
-        var weightAcc:      Double = 0.9  // pesos (Passo 5)
-        var weightSpeed:    Double = 1.1
+        var weightAcc:      Double = 1.5  // pesos (Passo 5)
+        var weightSpeed:    Double = 1.0
         var weightMag:      Double = 0.3
         var weightPressure: Double = 0.7
         var emaAlpha:       Double = 0.5  // suavização (Passo 7)
-        var baselineQuietFrac:     Double = 0.3   // fração do score do pico
+        var baselineQuietFrac:     Double = 0.5   // fração do score do pico
         var baselineQuietFloor:    Double = 1.5     // piso absoluto do limiar
         var baselineMaxLookbackMs: Int64  = 30_000  // recuo máximo
 
@@ -122,28 +132,30 @@ extension SensorWindow {
         struct RawTick {
             let t: Int64
             let gated: Bool
-            let speed: Double   // velocidade GPS do tick (para o Passo 8b)
+            let speed: Double     // velocidade GPS do tick (para o Passo 8b)
+            let acc: Double       // accuracy GPS do tick (para o Passo 8b)
+            let hasSignal: Bool   // sinal GPS do tick (para o Passo 8b)
             let dAcc: Double; let dSpeed: Double; let dMag: Double; let dPress: Double
         }
         var raws: [RawTick] = []
 
         for g in gpsReadings {
             let t = g.timestampMs
-            let target = t - params.rateMs
+            let target = t + params.rateMs
 
-            // Âncoras GPS a ~5 s atrás (obrigatórias — sem elas não há variação a medir).
-            guard let accPast   = Self.valueAt(gpsReadings, target, { $0.timestampMs }, { Double($0.accuracyMeters) }),
-                  let speedPast = Self.valueAt(gpsReadings, target, { $0.timestampMs }, { $0.speedMps })
+            // Âncoras GPS a ~rateMs à frente (obrigatórias — sem elas não há variação a medir).
+            guard let accFuture   = Self.valueAt(gpsReadings, target, { $0.timestampMs }, { Double($0.accuracyMeters) }),
+                  let speedFuture = Self.valueAt(gpsReadings, target, { $0.timestampMs }, { $0.speedMps })
             else { continue }
 
             // Magnetómetro e pressão: opcionais — 0 se não houver leituras.
-            let magNow    = Self.valueAt(magneticReadings, t,      { $0.timestampMs }, { $0.magnitude })
-            let magPast   = Self.valueAt(magneticReadings, target, { $0.timestampMs }, { $0.magnitude })
-            let dMag: Double = (magNow != nil && magPast != nil) ? abs(magNow! - magPast!) : 0
+            let magNow     = Self.valueAt(magneticReadings, t,      { $0.timestampMs }, { $0.magnitude })
+            let magFuture  = Self.valueAt(magneticReadings, target, { $0.timestampMs }, { $0.magnitude })
+            let dMag: Double = (magNow != nil && magFuture != nil) ? abs(magFuture! - magNow!) : 0
 
-            let pressNow  = Self.valueAt(pressureReadings, t,      { $0.timestampMs }, { Double($0.hPa) })
-            let pressPast = Self.valueAt(pressureReadings, target, { $0.timestampMs }, { Double($0.hPa) })
-            let dPress: Double = (pressNow != nil && pressPast != nil) ? abs(pressNow! - pressPast!) : 0
+            let pressNow    = Self.valueAt(pressureReadings, t,      { $0.timestampMs }, { Double($0.hPa) })
+            let pressFuture = Self.valueAt(pressureReadings, target, { $0.timestampMs }, { Double($0.hPa) })
+            let dPress: Double = (pressNow != nil && pressFuture != nil) ? abs(pressFuture! - pressNow!) : 0
 
             // Gate (Passo 2): velocidade mínima + sinal GPS.
             let gated = g.hasSignal && g.speedMps > params.minSpeedMps
@@ -152,8 +164,12 @@ extension SensorWindow {
                 t:      t,
                 gated:  gated,
                 speed:  g.speedMps,
-                dAcc:   abs(Double(g.accuracyMeters) - accPast),
-                dSpeed: abs(g.speedMps - speedPast),
+                acc:    Double(g.accuracyMeters),
+                hasSignal: g.hasSignal,
+                // Direcionais (Passo 1): accuracy só pontua se PIORA (sobe) e
+                // velocidade só se DESCE até ao tick futuro; senão delta = 0.
+                dAcc:   max(0, accFuture - Double(g.accuracyMeters)),
+                dSpeed: max(0, g.speedMps - speedFuture),
                 dMag:   dMag,
                 dPress: dPress
             ))
@@ -258,8 +274,22 @@ extension SensorWindow {
             where cleanFlags[i] && raws[i].speed >= params.cruiseSpeedMps {
                 cruiseAfterMs += 1_000
             }
+            // Cruzeiro retomado após o pico = pico prematuro (ainda na rua).
+            // Nesse caso a transição real seria a seguir, e tem de deixar rasto
+            // de garagem: accuracy a piorar face ao pico ou perda de sinal.
+            // Parar à beira do passeio vindo de cruzeiro (rua) não deixa — a
+            // accuracy mantém-se, e o pico é rejeitado → janela curta no fim.
+            var worstAccAfter = 0.0
+            var signalLostAfter = false
+            for i in (bestIdx + 1)..<raws.count {
+                worstAccAfter = max(worstAccAfter, raws[i].acc)
+                if !raws[i].hasSignal { signalLostAfter = true }
+            }
+            let garageEvidence = signalLostAfter
+                || worstAccAfter - raws[bestIdx].acc >= params.minAccWorseAfterPeakM
             let isTransition = bestScore >= params.minPeakScore
                             && cruiseAfterMs <= params.maxCruiseAfterPeakMs
+                            && (cruiseAfterMs == 0 || garageEvidence)
             if !isTransition {
                 // Sem transição (rua / pouca variação): janela curta ancorada
                 // no fim — apanha só a manobra final de estacionamento.

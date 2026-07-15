@@ -45,4 +45,4 @@ elapsed_s,timestamp,pressure_hpa,gps_accuracy_m,gps_speed_mps,mag_ut
 44,2026-07-09T15:32:32Z,1003.54,5.01,0.00,77.59
 45,2026-07-09T15:32:33Z,1003.54,5.01,0.00,78.02
 
-EXPECTED 23
+EXPECTED 35
