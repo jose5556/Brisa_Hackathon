@@ -166,11 +166,6 @@ struct ContentView: View {
     // ── Header ────────────────────────────────────────
     func headerView(height: CGFloat) -> some View {
         ZStack {
-            LinearGradient(
-                colors: [.vvGreenDark, .vvGreen],
-                startPoint: .top, endPoint: .bottom
-            )
-
             VStack(spacing: 10) {
                 // Logo placeholder — substitui por Image("logo_viaverde")
                 RoundedRectangle(cornerRadius: 14)
@@ -234,11 +229,20 @@ struct ContentView: View {
                 }
                 Spacer()
             }
-            .padding(.top, 56)
+            .padding(.top, 8)
         }
-        // Altura vem do body (30% do ecrã); sem frame o LinearGradient expandiria
+        .frame(maxWidth: .infinity)
+        // Altura vem do body (30% do ecrã, já descontado o inset da status bar)
         .frame(height: height)
-        .ignoresSafeArea(edges: .top)
+        // O gradiente vive no background e estende-se sozinho por trás da
+        // status bar — o conteúdo fica no layout normal, sem faixas brancas.
+        .background(
+            LinearGradient(
+                colors: [.vvGreenDark, .vvGreen],
+                startPoint: .top, endPoint: .bottom
+            )
+            .ignoresSafeArea(edges: .top)
+        )
     }
 }
 
