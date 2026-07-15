@@ -34,34 +34,45 @@ struct ContentView: View {
     @State private var showSettings = false
     private let progressTimer = Timer.publish(every: 0.1, on: .main, in: .common).autoconnect()
 
+    // Espaçamento vertical único entre todos os blocos da UI
+    private let sectionSpacing: CGFloat = 16
+
     var isLoading: Bool { viewModel.uploadResult == .loading }
 
     var body: some View {
         NavigationStack {
+        GeometryReader { geo in
+        // Verde do header = 30% da altura total do ecrã.
+        // O frame é medido abaixo da status bar, por isso desconta o inset superior.
+        let screenHeight = geo.size.height + geo.safeAreaInsets.top + geo.safeAreaInsets.bottom
+        let headerHeight = screenHeight * 0.30 - geo.safeAreaInsets.top
+
         VStack(spacing: 0) {
 
             // ── Header verde ──────────────────────────
-            headerView
+            headerView(height: headerHeight)
 
             // ── Corpo ─────────────────────────────────
             ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: sectionSpacing) {
 
                     // Card de estado
                     StatusCard(result: viewModel.uploadResult,
                                progress: isLoading ? progressValue : 0)
 
-                    // Grid de sensores
-                    Text("SENSORES ACTIVOS")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(.vvMuted)
-                        .kerning(1.5)
+                    // Secção de sensores (título + chips agrupados)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("SENSORES ACTIVOS")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.vvMuted)
+                            .kerning(1.5)
 
-                    HStack(spacing: 10) {
-                        SensorChip(name: "GPS",   label: "Localização")
-                        SensorChip(name: "Bar.",  label: "Pressão")
-                    //    SensorChip(name: "Acel.", label: "Movimento") 
-                        SensorChip(name: "Mag.",  label: "Campo")
+                        HStack(spacing: 10) {
+                            SensorChip(name: "GPS",   label: "Localização")
+                            SensorChip(name: "Bar.",  label: "Pressão")
+                        //    SensorChip(name: "Acel.", label: "Movimento")
+                            SensorChip(name: "Mag.",  label: "Campo")
+                        }
                     }
 
                     // Resultado
@@ -78,11 +89,9 @@ struct ContentView: View {
                     if case .error(let message) = viewModel.uploadResult {
                         ErrorCard(message: message)
                     }
-
-                    Spacer(minLength: 20)
                 }
                 .padding(.horizontal, 20)
-                .padding(.vertical, 20)
+                .padding(.vertical, sectionSpacing)
             }
 
             // ── Botão ───────────────────────
@@ -105,7 +114,7 @@ struct ContentView: View {
                                     .foregroundColor(.white)
                                     .kerning(0.5)
                             } else {
-                                Text("▶  ANALISAR")
+                                Text("▶ ESTACIONAR")
                                     .font(.system(size: 15, weight: .bold))
                                     .foregroundColor(.white)
                                     .kerning(1)
@@ -126,10 +135,11 @@ struct ContentView: View {
                     }
                 }
                 .padding(.horizontal, 20)
-                .padding(.vertical, 16)
+                .padding(.vertical, sectionSpacing)
                 .background(Color.vvBackground)
             }
         }
+        } // GeometryReader
         .background(Color.vvBackground.ignoresSafeArea())
         .onAppear { viewModel.startCollecting() }
         .onChange(of: scenePhase) { phase in
@@ -154,7 +164,7 @@ struct ContentView: View {
     }
 
     // ── Header ────────────────────────────────────────
-    var headerView: some View {
+    func headerView(height: CGFloat) -> some View {
         ZStack {
             LinearGradient(
                 colors: [.vvGreenDark, .vvGreen],
@@ -226,6 +236,8 @@ struct ContentView: View {
             }
             .padding(.top, 56)
         }
+        // Altura vem do body (30% do ecrã); sem frame o LinearGradient expandiria
+        .frame(height: height)
         .ignoresSafeArea(edges: .top)
     }
 }
@@ -239,7 +251,7 @@ struct StatusCard: View {
     private var content: (label: String, text: String, tagColor: Color, tagText: String) {
         switch result {
         case .idle:
-            return ("ESTADO", "Pronto para recolher dados", .vvGreen, "Idle")
+            return ("ESTADO", "Pronto para recolher dados", .vvGreen, "OK")
         case .loading:
             return ("A RECOLHER", "A capturar sensores…", Color(red: 0.902, green: 0.318, blue: 0), "Em curso")
         case .success:
