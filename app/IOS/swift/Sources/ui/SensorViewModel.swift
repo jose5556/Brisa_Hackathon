@@ -95,6 +95,8 @@ final class SensorViewModel: ObservableObject {
                 try await repository.sendFeedback(
                     payloadId: response.payloadId,
                     sessionId: response.sessionId,
+                    ml1Classification: response.ml1Classification,
+                    finalDecision: response.finalDecision,
                     feedback: verdict
                 )
                 feedbackState = .sent(verdict)

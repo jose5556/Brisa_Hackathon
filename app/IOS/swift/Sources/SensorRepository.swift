@@ -80,11 +80,15 @@ final class SensorRepository {
     func sendFeedback(
         payloadId: String,
         sessionId: String,
+        ml1Classification: String,
+        finalDecision: String,
         feedback: FeedbackVerdict
     ) async throws {
         try await SensorApiClient.shared.sendFeedback(
             payloadId: payloadId,
             sessionId: sessionId,
+            ml1Classification: ml1Classification,
+            finalDecision: finalDecision,
             feedback: feedback
         )
     }

@@ -84,11 +84,15 @@ enum FeedbackVerdict: String, Codable {
 struct FeedbackRequest: Encodable {
     let payloadId: String
     let sessionId: String
+    let ml1Classification: String
+    let finalDecision: String
     let feedback: FeedbackVerdict
 
     enum CodingKeys: String, CodingKey {
         case payloadId = "payload_id"
         case sessionId = "session_id"
+        case ml1Classification = "ml1_classification"
+        case finalDecision = "final_decision"
         case feedback
     }
 }
@@ -196,6 +200,8 @@ final class SensorApiClient {
     func sendFeedback(
         payloadId: String,
         sessionId: String,
+        ml1Classification: String,
+        finalDecision: String,
         feedback: FeedbackVerdict
     ) async throws {
 
@@ -210,6 +216,8 @@ final class SensorApiClient {
 
         let body = FeedbackRequest(payloadId: payloadId,
                                    sessionId: sessionId,
+                                   ml1Classification: ml1Classification,
+                                   finalDecision: finalDecision,
                                    feedback: feedback)
         do {
             request.httpBody = try encoder.encode(body)
