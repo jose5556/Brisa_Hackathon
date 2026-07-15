@@ -22,12 +22,6 @@ final class SensorViewModel: ObservableObject {
     // Deltas ao vivo — Δ de cada sensor nos últimos 10s, atualizado a 1 Hz
     @Published var liveDeltas: SensorDeltas? = nil
 
-    // ── Captura manual (janela dinâmica) ──────────────
-    // isManualCapture: true entre "Iniciar" e "Analisar ambiente".
-    // manualElapsedS: segundos decorridos desde o "Iniciar" (atualizado a 1 Hz).
-    @Published var isManualCapture = false
-    @Published var manualElapsedS = 0
-
     // ── Recolha de dados (tela DATA) ──────────────────
     @Published var isDataRecording = false
     @Published var dataTicks: [SensorTick] = []
@@ -36,8 +30,6 @@ final class SensorViewModel: ObservableObject {
     private let repository = SensorRepository()
     private var isCollecting = false
     private var liveTimer: Timer? = nil
-    private var manualStartMs: Int64 = 0
-    private var manualTimer: Timer? = nil
     private var dataStartMs: Int64 = 0
     private var dataTimer: Timer? = nil
 
@@ -82,49 +74,6 @@ final class SensorViewModel: ObservableObject {
             }
 
             await process(window: window)
-        }
-    }
-
-    // ── Captura manual (janela dinâmica) ──────────────
-
-    /// "Iniciar" — marca o instante de arranque e começa a contar segundos a 1 Hz.
-    func startManualCapture() {
-        guard !isManualCapture, !isCollecting else { return }
-        manualStartMs = collector.currentTimeMs()
-        manualElapsedS = 0
-        isManualCapture = true
-        uploadResult = .idle
-
-        let manualTick = Timer(timeInterval: 1.0, repeats: true) { [weak self] _ in
-            guard let self else { return }
-            Task { @MainActor in
-                self.manualElapsedS = Int((self.collector.currentTimeMs() - self.manualStartMs) / 1000)
-            }
-        }
-        RunLoop.main.add(manualTick, forMode: .common)
-        manualTimer = manualTick
-    }
-
-    /// Cancela a captura manual sem analisar.
-    func cancelManualCapture() {
-        manualTimer?.invalidate(); manualTimer = nil
-        isManualCapture = false
-        manualElapsedS = 0
-    }
-
-    /// "Analisar ambiente" (dinâmico) — fecha a contagem e analisa a janela
-    /// recortada desde o "Iniciar" (limitada a 180s pelo collector).
-    func analyzeManualWindow() {
-        guard isManualCapture, !isCollecting else { return }
-        manualTimer?.invalidate(); manualTimer = nil
-        isManualCapture = false
-        isCollecting = true
-        uploadResult = .loading
-
-        let startMs = manualStartMs
-        Task {
-            defer { isCollecting = false }
-            await process(window: collector.getWindow(sinceMs: startMs))
         }
     }
 

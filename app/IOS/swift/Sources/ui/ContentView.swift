@@ -89,38 +89,6 @@ struct ContentView: View {
                 Divider()
                 VStack(spacing: 8) {
 
-                    // ── Janela dinâmica: Iniciar / Analisar ───
-                    HStack(spacing: 8) {
-                        // Iniciar (ou parar contagem)
-                        Button(action: {
-                            if viewModel.isManualCapture { viewModel.cancelManualCapture() }
-                            else { viewModel.startManualCapture() }
-                        }) {
-                            Text(viewModel.isManualCapture
-                                 ? "■  \(viewModel.manualElapsedS)s"
-                                 : "●  INICIAR")
-                                .font(.system(size: 13, weight: .bold))
-                                .foregroundColor(viewModel.isManualCapture ? .white : .vvGreenDark)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 40)
-                                .background(viewModel.isManualCapture ? Color.vvGreenDark : Color.vvGreenLight)
-                                .cornerRadius(10)
-                        }
-                        .disabled(isLoading)
-
-                        // Analisar ambiente (janela dinâmica)
-                        Button(action: { viewModel.analyzeManualWindow() }) {
-                            Text("ANALISAR AMBIENTE")
-                                .font(.system(size: 13, weight: .bold))
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 40)
-                                .background(viewModel.isManualCapture ? Color.vvGreen : Color.vvGreen.opacity(0.4))
-                                .cornerRadius(10)
-                        }
-                        .disabled(!viewModel.isManualCapture || isLoading)
-                    }
-
                     Button(action: {
                         viewModel.testDbConnection()   // teste rápido: imprime GET /db/health no console
                         if isLoading { viewModel.resetResult() }
