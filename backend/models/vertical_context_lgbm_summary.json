@@ -1,6 +1,4 @@
 {
-  "model_name": "vertical_classifier",
-  "version_tag": "v1.0.0-lgbm",
   "artifact_path": "/home/bruno/Desktop/SEA_ME/BRISA/Brisa_Hackathon/backend/models/vertical_context_lgbm.joblib",
   "feature_columns": [
     "pressure_hpa",

@@ -30,7 +30,7 @@ CITY_SCHEMA_MAP = {
     "Espinho": "Espinho",
     "Matosinhos": "Matosinhos",
     "Maia": "Maia",
-    "Vila_nova_de_Gaia": "Vila nova de Gaia",
+    "Vila_Nova_de_Gaia": "Vila Nova de Gaia",
     "Arouca": "Arouca"
 }
 
