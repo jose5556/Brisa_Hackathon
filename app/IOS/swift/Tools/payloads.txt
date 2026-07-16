@@ -80,7 +80,7 @@ label="street_level"
   window_duration_s    : 5 s
 }
 
-label="undergorund"
+label="underground"
 {
   latitude             : 41.15793
   longitude            : -8.62912
@@ -184,4 +184,24 @@ label="street_level"
   window_duration_s    : 5 s
 }
 
+
+label="street_level"
+{
+  latitude             : 41.15795
+  longitude            : -8.62913
+  city                 : Porto
+  gnss_accuracy_mean   : 7.68 m
+  gnss_accuracy_delta  : 8.36 m
+  gnss_lost_ratio      : 0.00
+  pressure_hpa (final) : 1004.39 hPa
+  pressure_delta       : 0.620 hPa
+  pressure_variance    : 0.0017 hPa²
+  altitude_delta       : 5.27 m
+  magnetic_field_mean  : 36.14 µT
+  magnetic_field_delta : 0.80 µT
+  magnetic_variance    : 0.80 µT²
+  window_start_at      : 2026-07-16T15:02:41Z
+  window_end_at        : 2026-07-16T15:02:46Z
+  window_duration_s    : 62 s
+}
 
