@@ -249,6 +249,10 @@ def get_parking_event(
 class FeedbackRequestBody(BaseModel):
     payload_id: str = Field(..., description="ID do payload de sensores associado à sessão")
     session_id: str = Field(..., description="ID da sessão de estacionamento")
+    ml1_classification: str = Field(..., description="Classificação vertical devolvida pela análise")
+    final_decision: Literal["charge", "no_charge"] = Field(
+        ..., description="Decisão final devolvida pela análise"
+    )
     feedback: Literal["correct", "incorrect"] = Field(
         ..., description="Veredicto do utilizador sobre a decisão final"
     )
@@ -281,6 +285,8 @@ def submit_feedback(
             db=db,
             session_id=request.session_id,
             payload_id=request.payload_id,
+            ml1_classification=request.ml1_classification,
+            final_decision=request.final_decision,
             feedback=request.feedback,
         )
     except ValueError as error:
