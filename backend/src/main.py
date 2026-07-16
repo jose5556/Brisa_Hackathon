@@ -248,13 +248,17 @@ def get_parking_event(
 
 
 class FeedbackRequestBody(BaseModel):
-    payload_id: str = Field(..., description="ID do payload de sensores associado à sessão")
-    session_id: str = Field(..., description="ID da sessão de estacionamento")
+    payload_id: str = Field(..., description="Sensor payload ID associated with the session")
+    session_id: str = Field(..., description="Parking session ID")
+    ml1_classification: str = Field(..., description="Vertical classification returned by the analysis")
+    final_decision: Literal["charge", "no_charge"] = Field(
+        ..., description="Final decision returned by the analysis"
+    )
     feedback: Literal["correct", "incorrect"] = Field(
-        ..., description="Veredicto do utilizador sobre a decisão final"
+        ..., description="User verdict about the final decision"
     )
     raw_timeseries: Optional[list[dict[str, Any]]] = Field(
-        default=None, description="Opcional array with raw readings"
+        default=None, description="Optional array with raw readings"
     )
 
 
@@ -271,10 +275,10 @@ class FeedbackResponseBody(BaseModel):
 @app.post(
     "/feedback",
     response_model=FeedbackResponseBody,
-    summary="Guardar feedback do utilizador",
+    summary="Store user feedback",
     description=(
-        "Recebe o veredicto do utilizador sobre a decisão do modelo e persiste "
-        "o feedback em parking_sessions e training_labels."
+        "Receives the user verdict about the model decision and persists "
+        "the feedback in parking_sessions and training_labels."
     ),
 )
 def submit_feedback(
@@ -286,6 +290,8 @@ def submit_feedback(
             db=db,
             session_id=request.session_id,
             payload_id=request.payload_id,
+            ml1_classification=request.ml1_classification,
+            final_decision=request.final_decision,
             feedback=request.feedback,
             raw_timeseries=request.raw_timeseries,
         )
