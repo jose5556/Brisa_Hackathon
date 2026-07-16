@@ -18,7 +18,7 @@ Bundle schema (written by train_vertical_lgbm.py):
     bundle["features"]             — list[str], feature names in training order
     bundle["label_encoder"]        — fitted LabelEncoder for class decoding
     bundle["non_street_threshold"] — optimal threshold from PR curve analysis
-    bundle["metrics"]              — val metrics for model_versions table
+    bundle["metrics"]              — validation metrics for monitoring
 
 Called by parking_service.py as the first step of the inference pipeline,
 before the spatial context lookup and Model 2.

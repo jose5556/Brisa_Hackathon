@@ -2,7 +2,7 @@ import json
 import time
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, Optional
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -14,8 +14,18 @@ from src.spatial_ml_predict import predict_final_decision
 log = logging.getLogger(__name__)
 
 DEFAULT_PLATFORM = "ios"
-# Valid city codes — must match the city_code TEXT in schema.sql
-VALID_CITIES = {"Porto", "Lisboa", "Oeiras", "Espinho", "Vila Nova de Gaia", "Matosinhos", "Maia"}
+# Valid city codes - must match city_code enum in database/schema/schema.sql
+VALID_CITIES = {
+    "Porto",
+    "Lisboa",
+    "Oeiras",
+    "Espinho",
+    "Vila Nova de Gaia",
+    "Matosinhos",
+    "Maia",
+    "Arouca",
+}
+CITY_ALIASES = {city.casefold(): city for city in VALID_CITIES}
 
 # Pipeline abort reason codes, stored in inference_logs and returned in the
 # API response so the developer dashboard can filter by abort type.
@@ -24,7 +34,7 @@ SPATIAL_ABORT  = "spatial_abort"    # street_level but outside paid zone
 NO_CHARGE      = "no_charge"        # Model 2: charge_confidence below threshold
 CHARGE         = "charge"           # All checks passed, initiate billing
 
-def _resolve_city(payload: dict[str, Any]) -> str:
+def _resolve_city(payload: dict[str, Any]) -> tuple[str, bool]:
     raw = payload.get("city")
     if not raw or not str(raw).strip():
         raise ValueError(
@@ -32,7 +42,14 @@ def _resolve_city(payload: dict[str, Any]) -> str:
             "Send the city name as received from CLGeocoder, "
             "e.g. 'Porto', 'Vila Nova de Gaia', 'Viana do Castelo'."
         )
-    return str(raw).strip()
+    normalized_city = " ".join(str(raw).strip().split())
+    canonical_city = CITY_ALIASES.get(normalized_city.casefold())
+    if canonical_city:
+        return canonical_city, True
+
+    # Unsupported city names should not fail the endpoint.
+    # They are treated as "no map available", returning no_charge.
+    return normalized_city, False
 
 
 def get_or_create_dev_user(db: Session, city: str) -> str:
@@ -254,7 +271,6 @@ def create_sensor_payload(
     db.flush()
     return str(payload_id)
 
-
 def create_inference_log(
     db: Session,
     session_id: str,
@@ -350,7 +366,23 @@ def analyze_and_store_parking_event(
     payload: dict[str, Any],
 ) -> dict[str, Any]:
     try:
-        city = _resolve_city(payload)
+        city, is_supported_city = _resolve_city(payload)
+        if not is_supported_city:
+            log.info(
+                "SPATIAL_ABORT unsupported city without map city=%s",
+                city,
+            )
+            return {
+                "session_id": None,
+                "payload_id": None,
+                "inference_id": None,
+                "abort_code": SPATIAL_ABORT,
+                "spatial_reason": "unsupported_city_no_map",
+                "distance_to_zone_m": None,
+                "final_decision": NO_CHARGE,
+                "confidence_to_charge": 0.0,
+            }
+
         user_id = get_or_create_dev_user(db, city)
         session_id = create_parking_session(db, payload, user_id, city)
         payload_id = create_sensor_payload(db, session_id, payload)
@@ -438,6 +470,7 @@ def analyze_and_store_parking_event(
         }
     
     except ValueError as exc:
+        db.rollback()
         log.warning("Payload validation error: %s", exc)
         raise
 
@@ -479,16 +512,22 @@ def store_user_feedback(
     db: Session,
     session_id: str,
     payload_id: str,
+    ml1_classification: str,
+    final_decision: str,
     feedback: str,
+    raw_timeseries: Optional[list[dict[str, Any]]] = None,
 ) -> dict[str, Any]:
-    """
-    Persiste feedback de utilizador sobre a decisao final do pipeline.
 
-    feedback:
-      - "correct"   -> o utilizador concorda com a decisao
-      - "incorrect" -> o utilizador discorda da decisao
-    """
     normalized_feedback = str(feedback).strip().lower()
+    normalized_ml1_classification = str(ml1_classification).strip()
+    normalized_final_decision = str(final_decision).strip().lower()
+
+    if not normalized_ml1_classification:
+        raise ValueError("Missing ml1_classification in feedback payload.")
+
+    if normalized_final_decision not in {"charge", "no_charge"}:
+        raise ValueError("Invalid final_decision. Expected 'charge' or 'no_charge'.")
+
     if normalized_feedback not in {"correct", "incorrect"}:
         raise ValueError("Invalid feedback. Expected 'correct' or 'incorrect'.")
 
@@ -559,6 +598,8 @@ def store_user_feedback(
                 label_confidence,
                 label_source,
                 model_was_correct,
+                ml1_classification,
+                final_decision,
                 created_at
             )
             VALUES (
@@ -568,6 +609,8 @@ def store_user_feedback(
                 :label_confidence,
                 :label_source,
                 :model_was_correct,
+                :ml1_classification,
+                CAST(:final_decision AS model_decision),
                 NOW()
             )
             RETURNING id::text
@@ -579,8 +622,36 @@ def store_user_feedback(
             "label_confidence": 1.0,
             "label_source": "user_confirm" if model_was_correct else "user_cancel",
             "model_was_correct": model_was_correct,
+            "ml1_classification": normalized_ml1_classification,
+            "final_decision": normalized_final_decision,
         },
     ).scalar_one()
+
+    if raw_timeseries:
+        values = []
+        for row in raw_timeseries:
+            values.append({
+                "session_id": session_id,
+                "elapsed_s": row.get("elapsed_s"),
+                "timestamp": row.get("timestamp"),
+                "pressure_hpa": row.get("pressure_hpa"),
+                "gps_accuracy_m": row.get("gps_accuracy_m"),
+                "gps_speed_mps": row.get("gps_speed_mps"),
+                "mag_ut": row.get("mag_ut")
+            })
+            
+        db.execute(
+            text("""
+                INSERT INTO sensor_timeseries (
+                    session_id, elapsed_s, timestamp, 
+                    pressure_hpa, gps_accuracy_m, gps_speed_mps, mag_ut
+                ) VALUES (
+                    :session_id, :elapsed_s, CAST(:timestamp AS TIMESTAMPTZ),
+                    :pressure_hpa, :gps_accuracy_m, :gps_speed_mps, :mag_ut
+                )
+            """),
+            values
+        )
 
     db.commit()
     return {
@@ -590,4 +661,5 @@ def store_user_feedback(
         "feedback": normalized_feedback,
         "model_was_correct": model_was_correct,
         "training_label_id": training_label_id,
+        "raw_timeseries_count": len(raw_timeseries) if raw_timeseries else 0
     }

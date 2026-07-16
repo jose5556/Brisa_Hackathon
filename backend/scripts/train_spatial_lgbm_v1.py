@@ -13,7 +13,7 @@ Compatible with the predict interface in spatial_ml_predict.py:
     bundle["features"]           — feature column names (same order as training)
     bundle["classes"]            — ["no_charge", "charge"]
     bundle["charge_threshold"]   — optimal operating threshold from PR curve
-    bundle["metrics"]            — val set metrics for the model registry
+    bundle["metrics"]            — validation-set metrics for monitoring
 
 Usage
 -----
@@ -40,7 +40,6 @@ Design
 - Threshold analysis on the binary charge_confidence score:
     precision/recall curve → pick operating point.
 - SHAP feature importances for model debugging.
-- Artifact bundle + JSON summary saved for the model_versions registry.
 - Predict interface verification run automatically after training.
 
 Dependencies
@@ -471,22 +470,18 @@ def save_artifact(
         bundle["features"]         — list[str], same order as training
         bundle["classes"]          — ["no_charge", "charge"]
         bundle["charge_threshold"] — recommended operating threshold
-        bundle["metrics"]          — val metrics for model_versions table
     """
     bundle = {
         "model":            model,
         "features":         FEATURE_COLS,
         "classes":          ["no_charge", "charge"],
         "charge_threshold": charge_threshold,
-        "metrics":          metrics,
     }
     joblib.dump(bundle, out_path)
     log.info("Model artifact saved → %s", out_path)
 
-    # JSON summary for automatic insert into model_versions table
+    # JSON summary with artifact and validation metadata
     summary = {
-        "model_name":       "spatial_classifier",
-        "version_tag":      "v1.0.0-lgbm",
         "artifact_path":    str(out_path),
         "feature_names":    FEATURE_COLS,
         "classes":          ["no_charge", "charge"],

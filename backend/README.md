@@ -162,7 +162,7 @@ Example for underground:
 curl -X POST "http://localhost:8000/parking-events/analyze" \
      -H "Content-Type: application/json" \
      -d '{
-       "city":"Oeiras",
+       "city":"Braga",
        "latitude": 41.1579,
        "longitude": -8.6291,
        "gnss_accuracy_mean": 85.0,

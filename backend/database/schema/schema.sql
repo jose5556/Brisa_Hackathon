@@ -154,6 +154,33 @@ CREATE TABLE sensor_payloads (
     
 );
 
+--============================================================
+--  4.1 SENSOR_TIMESERIES
+--  Raw readings (1Hz) captured during the analysis window
+-- ============================================================
+CREATE TABLE sensor_timeseries (
+    id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    session_id          UUID NOT NULL REFERENCES parking_sessions(id) ON DELETE CASCADE,
+    
+    -- Tempo
+    elapsed_s           INTEGER NOT NULL,       -- "elapsed_s" (eg: 1, 2, 3...)
+    timestamp           TIMESTAMPTZ NOT NULL,   -- "timestamp" (eg: 2026-07-13T13:23:52Z)
+    
+    -- Barómetro
+    pressure_hpa        NUMERIC(8,3),           -- "pressure_hpa" (eg: 1013.25)
+    
+    -- GNSS / GPS
+    gps_accuracy_m      NUMERIC(6,2),           -- "gps_accuracy_m" (eg: 5.0)
+    gps_speed_mps       NUMERIC(6,2),           -- "gps_speed_mps" (eg: 10.5) (Metros por segundo)
+
+    -- Magnetómetro
+    mag_ut              NUMERIC(8,3),           -- "mag_ut" (eg: 50.0) (Magnitude total)
+
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_sensor_timeseries_session ON sensor_timeseries(session_id);
+
 CREATE INDEX idx_sensor_payloads_session ON sensor_payloads(session_id);
 
 --===============================================================
@@ -166,7 +193,6 @@ CREATE TABLE inference_logs (
     id                          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     session_id                  UUID NOT NULL REFERENCES parking_sessions(id),
     payload_id                  UUID REFERENCES sensor_payloads(id),
-    model_version_id            UUID,          -- FK to model_versions (below)
 
     -- Model 1 — Vertical Context Classifier
     ml1_street_prob              NUMERIC(5,4),  -- P(street_level)
@@ -193,7 +219,6 @@ CREATE TABLE inference_logs (
 );
 
 CREATE INDEX idx_inference_logs_session ON inference_logs(session_id);
-CREATE INDEX idx_inference_logs_model ON inference_logs(model_version_id);
 
 --==============================================================
 --  6. TRAINING_LABELS
@@ -204,7 +229,6 @@ CREATE INDEX idx_inference_logs_model ON inference_logs(model_version_id);
 CREATE TABLE training_labels (
     id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     session_id          UUID NOT NULL REFERENCES parking_sessions(id),
-    inference_log_id    UUID REFERENCES inference_logs(id),
 
     -- Label
     location_type       location_type NOT NULL,
@@ -212,60 +236,20 @@ CREATE TABLE training_labels (
     label_source        TEXT NOT NULL,   -- 'correct' | 'incorrect'
     labelled_by         UUID REFERENCES users(id),          -- NULL if automatic
 
-    -- Confirmed geometry (may differ slightly from GPS)
-    confirmed_location  GEOMETRY(POINT, 4326),
-
     -- For model error analysis
     model_was_correct   BOOLEAN,        -- comparison with final_decision
-    error_type          TEXT,           -- 'false_positive' | 'false_negative' | NULL
+
+    -- Model/decision values
+    ml1_classification  TEXT,
+    final_decision      model_decision,
 
     -- Quality flags for filtering during training
     is_valid            BOOLEAN NOT NULL DEFAULT TRUE,
-    exclusion_reason    TEXT,           -- reason if is_valid = FALSE
 
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_training_labels_geom ON training_labels USING GIST(confirmed_location);
 CREATE INDEX idx_training_labels_session ON training_labels(session_id);
-
---============================================================
---  7. MODEL_VERSIONS
---  Registry of model versions - Model 1 and Model 2
--- ============================================================
-
-CREATE TABLE model_versions (
-    id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    model_name          TEXT NOT NULL,       -- 'vertical_classifier' | 'spatial_classifier'
-    version_tag         TEXT NOT NULL,       -- ex: 'v1.0.0', 'v1.2.3'
-    description         TEXT,
-
-    -- Artifact
-    artifact_path       TEXT NOT NULL,      -- trained model path
-
-    -- Training metrics
-    train_accuracy      NUMERIC(5,4),
-    train_f1_score      NUMERIC(5,4),
-    val_accuracy        NUMERIC(5,4),
-    val_f1_score        NUMERIC(5,4),
-    val_precision       NUMERIC(5,4),
-    val_recall          NUMERIC(5,4),
-    train_sample_count  INTEGER,
-    val_sample_count    INTEGER,
-
-    -- Deployment
-    is_active           BOOLEAN NOT NULL DEFAULT FALSE,  -- only one active per model_name
-    deployed_at         TIMESTAMPTZ,
-    retired_at          TIMESTAMPTZ,
-    deployed_by         UUID REFERENCES users(id),
-
-    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- Ensure only one active version per model
-CREATE UNIQUE INDEX idx_model_versions_active
-    ON model_versions(model_name)
-    WHERE is_active = TRUE;
 
 --============================================================
 --  USEFUL VIEWS FOR THE DEVELOPER DASHBOARD

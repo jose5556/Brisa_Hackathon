@@ -11,7 +11,7 @@ Bundle schema (written by train_spatial_lgbm.py):
     bundle["features"]         — list[str], feature names in training order
     bundle["classes"]          — ["no_charge", "charge"]
     bundle["charge_threshold"] — optimal threshold from PR curve analysis
-    bundle["metrics"]          — val metrics for model_versions table
+    bundle["metrics"]          — validation metrics for monitoring
 
 Called by parking_service.py after:
     1. Model 1 has produced ml1_non_street_confidence

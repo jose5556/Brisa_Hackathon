@@ -1,4 +1,4 @@
-from typing import Any, Literal
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field
 from fastapi import Depends, FastAPI, HTTPException
@@ -10,6 +10,7 @@ from src.database_session_connection import get_db
 from src.parking_service import analyze_and_store_parking_event, store_user_feedback
 
 import subprocess
+
 
 app = FastAPI(
     title="Vertical Context Detector API",
@@ -85,6 +86,9 @@ def predict(payload: dict[str, Any], db: Session = Depends(get_db)):
     try:
         return analyze_and_store_parking_event(db, payload)
 
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+
     except FileNotFoundError as error:
         raise HTTPException(status_code=500, detail=str(error))
 
@@ -102,6 +106,9 @@ def analyze_parking_event(
 ):
     try:
         return analyze_and_store_parking_event(db, payload)
+
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
 
     except FileNotFoundError as error:
         raise HTTPException(status_code=500, detail=str(error))
@@ -241,10 +248,17 @@ def get_parking_event(
 
 
 class FeedbackRequestBody(BaseModel):
-    payload_id: str = Field(..., description="ID do payload de sensores associado à sessão")
-    session_id: str = Field(..., description="ID da sessão de estacionamento")
+    payload_id: str = Field(..., description="Sensor payload ID associated with the session")
+    session_id: str = Field(..., description="Parking session ID")
+    ml1_classification: str = Field(..., description="Vertical classification returned by the analysis")
+    final_decision: Literal["charge", "no_charge"] = Field(
+        ..., description="Final decision returned by the analysis"
+    )
     feedback: Literal["correct", "incorrect"] = Field(
-        ..., description="Veredicto do utilizador sobre a decisão final"
+        ..., description="User verdict about the final decision"
+    )
+    raw_timeseries: Optional[list[dict[str, Any]]] = Field(
+        default=None, description="Optional array with raw readings"
     )
 
 
@@ -255,15 +269,16 @@ class FeedbackResponseBody(BaseModel):
     feedback: str
     model_was_correct: bool
     training_label_id: str
+    raw_timeseries_count: int = 0
 
 
 @app.post(
     "/feedback",
     response_model=FeedbackResponseBody,
-    summary="Guardar feedback do utilizador",
+    summary="Store user feedback",
     description=(
-        "Recebe o veredicto do utilizador sobre a decisão do modelo e persiste "
-        "o feedback em parking_sessions e training_labels."
+        "Receives the user verdict about the model decision and persists "
+        "the feedback in parking_sessions and training_labels."
     ),
 )
 def submit_feedback(
@@ -275,7 +290,10 @@ def submit_feedback(
             db=db,
             session_id=request.session_id,
             payload_id=request.payload_id,
+            ml1_classification=request.ml1_classification,
+            final_decision=request.final_decision,
             feedback=request.feedback,
+            raw_timeseries=request.raw_timeseries,
         )
     except ValueError as error:
         db.rollback()
