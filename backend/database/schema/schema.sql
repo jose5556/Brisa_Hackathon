@@ -229,7 +229,6 @@ CREATE INDEX idx_inference_logs_session ON inference_logs(session_id);
 CREATE TABLE training_labels (
     id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     session_id          UUID NOT NULL REFERENCES parking_sessions(id),
-    inference_log_id    UUID REFERENCES inference_logs(id),
 
     -- Label
     location_type       location_type NOT NULL,
