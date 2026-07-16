@@ -245,6 +245,7 @@ CREATE TABLE training_labels (
 
     -- Quality flags for filtering during training
     is_valid            BOOLEAN NOT NULL DEFAULT TRUE,
+	inference_log_id    UUID REFERENCES inference_logs(id),
 
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
