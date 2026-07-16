@@ -2,7 +2,7 @@ import json
 import time
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, Optional
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -271,7 +271,6 @@ def create_sensor_payload(
     db.flush()
     return str(payload_id)
 
-
 def create_inference_log(
     db: Session,
     session_id: str,
@@ -514,6 +513,7 @@ def store_user_feedback(
     session_id: str,
     payload_id: str,
     feedback: str,
+    raw_timeseries: Optional[list[dict[str, Any]]] = None,
 ) -> dict[str, Any]:
 
     normalized_feedback = str(feedback).strip().lower()
@@ -610,6 +610,32 @@ def store_user_feedback(
         },
     ).scalar_one()
 
+    if raw_timeseries:
+        values = []
+        for row in raw_timeseries:
+            values.append({
+                "session_id": session_id,
+                "elapsed_s": row.get("elapsed_s"),
+                "timestamp": row.get("timestamp"),
+                "pressure_hpa": row.get("pressure_hpa"),
+                "gps_accuracy_m": row.get("gps_accuracy_m"),
+                "gps_speed_mps": row.get("gps_speed_mps"),
+                "mag_ut": row.get("mag_ut")
+            })
+            
+        db.execute(
+            text("""
+                INSERT INTO sensor_timeseries (
+                    session_id, elapsed_s, timestamp, 
+                    pressure_hpa, gps_accuracy_m, gps_speed_mps, mag_ut
+                ) VALUES (
+                    :session_id, :elapsed_s, CAST(:timestamp AS TIMESTAMPTZ),
+                    :pressure_hpa, :gps_accuracy_m, :gps_speed_mps, :mag_ut
+                )
+            """),
+            values
+        )
+
     db.commit()
     return {
         "status": "ok",
@@ -618,4 +644,5 @@ def store_user_feedback(
         "feedback": normalized_feedback,
         "model_was_correct": model_was_correct,
         "training_label_id": training_label_id,
+        "raw_timeseries_count": len(raw_timeseries) if raw_timeseries else 0
     }

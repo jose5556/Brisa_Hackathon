@@ -154,6 +154,33 @@ CREATE TABLE sensor_payloads (
     
 );
 
+--============================================================
+--  4.1 SENSOR_TIMESERIES
+--  Raw readings (1Hz) captured during the analysis window
+-- ============================================================
+CREATE TABLE sensor_timeseries (
+    id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    session_id          UUID NOT NULL REFERENCES parking_sessions(id) ON DELETE CASCADE,
+    
+    -- Tempo
+    elapsed_s           INTEGER NOT NULL,       -- "elapsed_s" (eg: 1, 2, 3...)
+    timestamp           TIMESTAMPTZ NOT NULL,   -- "timestamp" (eg: 2026-07-13T13:23:52Z)
+    
+    -- Barómetro
+    pressure_hpa        NUMERIC(8,3),           -- "pressure_hpa" (eg: 1013.25)
+    
+    -- GNSS / GPS
+    gps_accuracy_m      NUMERIC(6,2),           -- "gps_accuracy_m" (eg: 5.0)
+    gps_speed_mps       NUMERIC(6,2),           -- "gps_speed_mps" (eg: 10.5) (Metros por segundo)
+
+    -- Magnetómetro
+    mag_ut              NUMERIC(8,3),           -- "mag_ut" (eg: 50.0) (Magnitude total)
+
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_sensor_timeseries_session ON sensor_timeseries(session_id);
+
 CREATE INDEX idx_sensor_payloads_session ON sensor_payloads(session_id);
 
 --===============================================================
