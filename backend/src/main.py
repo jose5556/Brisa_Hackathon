@@ -1,4 +1,4 @@
-from typing import Any, Literal
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field
 from fastapi import Depends, FastAPI, HTTPException
@@ -10,6 +10,7 @@ from src.database_session_connection import get_db
 from src.parking_service import analyze_and_store_parking_event, store_user_feedback
 
 import subprocess
+
 
 app = FastAPI(
     title="Vertical Context Detector API",
@@ -256,6 +257,9 @@ class FeedbackRequestBody(BaseModel):
     feedback: Literal["correct", "incorrect"] = Field(
         ..., description="Veredicto do utilizador sobre a decisão final"
     )
+    raw_timeseries: Optional[list[dict[str, Any]]] = Field(
+        default=None, description="Opcional array with raw readings"
+    )
 
 
 class FeedbackResponseBody(BaseModel):
@@ -265,6 +269,7 @@ class FeedbackResponseBody(BaseModel):
     feedback: str
     model_was_correct: bool
     training_label_id: str
+    raw_timeseries_count: int = 0
 
 
 @app.post(
@@ -288,6 +293,7 @@ def submit_feedback(
             ml1_classification=request.ml1_classification,
             final_decision=request.final_decision,
             feedback=request.feedback,
+            raw_timeseries=request.raw_timeseries,
         )
     except ValueError as error:
         db.rollback()
