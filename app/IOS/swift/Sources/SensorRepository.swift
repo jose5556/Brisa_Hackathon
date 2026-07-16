@@ -82,14 +82,16 @@ final class SensorRepository {
         sessionId: String,
         ml1Classification: String,
         finalDecision: String,
-        feedback: FeedbackVerdict
+        feedback: FeedbackVerdict,
+        rawTimeseries: [RawTimeseriesTick]? = nil
     ) async throws {
         try await SensorApiClient.shared.sendFeedback(
             payloadId: payloadId,
             sessionId: sessionId,
             ml1Classification: ml1Classification,
             finalDecision: finalDecision,
-            feedback: feedback
+            feedback: feedback,
+            rawTimeseries: rawTimeseries
         )
     }
 }
