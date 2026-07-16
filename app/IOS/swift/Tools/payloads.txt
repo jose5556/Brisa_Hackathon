@@ -1,0 +1,187 @@
+label="above"
+{ 
+  latitude             : 41.15794
+  longitude            : -8.62913
+  city                 : Porto
+  gnss_accuracy_mean   : 42.00 m
+  gnss_accuracy_delta  : 82.41 m
+  gnss_lost_ratio      : 0.00
+  pressure_hpa (final) : 1003.56 hPa
+  pressure_delta       : 1.330 hPa
+  pressure_variance    : 0.2348 hPa²
+  altitude_delta       : 11.31 m
+  magnetic_field_mean  : 28.82 µT
+  magnetic_field_delta : -8.20 µT
+  magnetic_variance    : 112.39 µT²
+  window_start_at      : 2026-07-16T14:53:25Z
+  window_end_at        : 2026-07-16T14:53:59Zgi
+  window_duration_s    : 34 s
+}
+
+
+label="street_level"
+{
+  latitude             : 41.15793
+  longitude            : -8.62909
+  city                 : Porto
+  gnss_accuracy_mean   : 14.25 m
+  gnss_accuracy_delta  : 0.00 m
+  gnss_lost_ratio      : 0.00
+  pressure_hpa (final) : 1008.33 hPa
+  pressure_delta       : -0.020 hPa
+  pressure_variance    : 0.0001 hPa²
+  altitude_delta       : -0.17 m
+  magnetic_field_mean  : 37.30 µT
+  magnetic_field_delta : -2.65 µT
+  magnetic_variance    : 1.79 µT²
+  window_start_at      : 2026-07-16T14:06:27Z
+  window_end_at        : 2026-07-16T14:06:32Z
+  window_duration_s    : 5 s
+}
+
+label="street_level"
+{
+  latitude             : 41.15796
+  longitude            : -8.62911
+  city                 : Porto
+  gnss_accuracy_mean   : 14.25 m
+  gnss_accuracy_delta  : 0.00 m
+  gnss_lost_ratio      : 0.00
+  pressure_hpa (final) : 1004.95 hPa
+  pressure_delta       : 0.070 hPa
+  pressure_variance    : 0.0007 hPa²
+  altitude_delta       : 0.60 m
+  magnetic_field_mean  : 36.87 µT
+  magnetic_field_delta : -4.87 µT
+  magnetic_variance    : 3.01 µT²
+  window_start_at      : 2026-07-16T14:54:06Z
+  window_end_at        : 2026-07-16T14:54:11Z
+  window_duration_s    : 5 s
+}
+
+
+label="street_level"
+{
+    latitude             : 41.15796
+  longitude            : -8.62911
+  city                 : Porto
+  gnss_accuracy_mean   : 8.02 m
+  gnss_accuracy_delta  : 0.01 m
+  gnss_lost_ratio      : 0.00
+  pressure_hpa (final) : 999.06 hPa
+  pressure_delta       : -0.010 hPa
+  pressure_variance    : 0.0000 hPa²
+  altitude_delta       : -0.09 m
+  magnetic_field_mean  : 54.78 µT
+  magnetic_field_delta : -0.10 µT
+  magnetic_variance    : 0.01 µT²
+  window_start_at      : 2026-07-16T14:55:33Z
+  window_end_at        : 2026-07-16T14:55:38Z
+  window_duration_s    : 5 s
+}
+
+label="undergorund"
+{
+  latitude             : 41.15793
+  longitude            : -8.62912
+  city                 : Porto
+  gnss_accuracy_mean   : 28.84 m
+  gnss_accuracy_delta  : 90.54 m
+  gnss_lost_ratio      : 0.35
+  pressure_hpa (final) : 1003.87 hPa
+  pressure_delta       : -0.600 hPa
+  pressure_variance    : 0.1649 hPa²
+  altitude_delta       : -5.10 m
+  magnetic_field_mean  : 25.98 µT
+  magnetic_field_delta : 6.00 µT
+  magnetic_variance    : 63.07 µT²
+  window_start_at      : 2026-07-16T14:57:46Z
+  window_end_at        : 2026-07-16T14:59:26Z
+  window_duration_s    : 100 s
+}
+
+label="underground"
+{
+  latitude             : 41.15796
+  longitude            : -8.62911
+  city                 : Porto
+  gnss_accuracy_mean   : 29.12 m
+  gnss_accuracy_delta  : 62.04 m
+  gnss_lost_ratio      : 0.00
+  pressure_hpa (final) : 1006.71 hPa
+  pressure_delta       : -0.430 hPa
+  pressure_variance    : 0.0212 hPa²
+  altitude_delta       : -3.65 m
+  magnetic_field_mean  : 42.97 µT
+  magnetic_field_delta : -43.95 µT
+  magnetic_variance    : 332.82 µT²
+  window_start_at      : 2026-07-16T14:57:40Z
+  window_end_at        : 2026-07-16T14:57:58Z
+  window_duration_s    : 18 s
+}
+
+
+label="underground"
+{
+    latitude             : 41.15796
+  longitude            : -8.62911
+  city                 : Porto
+  gnss_accuracy_mean   : 44.90 m
+  gnss_accuracy_delta  : 32.06 m
+  gnss_lost_ratio      : 0.22
+  pressure_hpa (final) : 1003.27 hPa
+  pressure_delta       : -0.580 hPa
+  pressure_variance    : 0.1746 hPa²
+  altitude_delta       : -4.93 m
+  magnetic_field_mean  : 31.68 µT
+  magnetic_field_delta : 6.62 µT
+  magnetic_variance    : 152.98 µT²
+  window_start_at      : 2026-07-16T15:01:00Z
+  window_end_at        : 2026-07-16T15:03:02Z
+  window_duration_s    : 122 s
+}
+
+
+label="above"
+{
+  latitude             : 41.15795
+  longitude            : -8.62913
+  city                 : Porto
+  gnss_accuracy_mean   : 61.56 m
+  gnss_accuracy_delta  : 87.86 m
+  gnss_lost_ratio      : 0.00
+  pressure_hpa (final) : 1005.78 hPa
+  pressure_delta       : 0.660 hPa
+  pressure_variance    : 0.0746 hPa²
+  altitude_delta       : 5.61 m
+  magnetic_field_mean  : 46.52 µT
+  magnetic_field_delta : 11.18 µT
+  magnetic_variance    : 238.30 µT²
+  window_start_at      : 2026-07-16T15:02:39Z
+  window_end_at        : 2026-07-16T15:04:18Z
+  window_duration_s    : 99 s
+}
+
+
+label="street_level"
+
+{
+  latitude             : 41.15795
+  longitude            : -8.62913
+  city                 : Porto
+  gnss_accuracy_mean   : 11.62 m
+  gnss_accuracy_delta  : 1.16 m
+  gnss_lost_ratio      : 0.00
+  pressure_hpa (final) : 999.77 hPa
+  pressure_delta       : -0.100 hPa
+  pressure_variance    : 0.0017 hPa²
+  altitude_delta       : -0.85 m
+  magnetic_field_mean  : 23.34 µT
+  magnetic_field_delta : 4.10 µT
+  magnetic_variance    : 2.82 µT²
+  window_start_at      : 2026-07-16T15:02:41Z
+  window_end_at        : 2026-07-16T15:02:46Z
+  window_duration_s    : 5 s
+}
+
+
