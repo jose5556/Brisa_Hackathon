@@ -60,6 +60,65 @@ struct SensorWindow {
     var magneticReadings: [MagneticReading] = []
 }
 
+// ── RawTimeseriesTick ─────────────────────────────────
+// Uma linha da série temporal bruta (1 Hz) do buffer que gerou um payload.
+// Enviada no /feedback (campo raw_timeseries) apenas quando o utilizador
+// valida a decisão — o backend grava em sensor_timeseries, dados rotulados
+// para recalibrar os pesos do score. Formato idêntico ao CSV da tela DATA.
+struct RawTimeseriesTick: Encodable {
+    let elapsedS:     Int
+    let timestamp:    String
+    let pressureHpa:  Double?
+    let gpsAccuracyM: Double
+    let gpsSpeedMps:  Double
+    let magUt:        Double?
+
+    enum CodingKeys: String, CodingKey {
+        case elapsedS     = "elapsed_s"
+        case timestamp
+        case pressureHpa  = "pressure_hpa"
+        case gpsAccuracyM = "gps_accuracy_m"
+        case gpsSpeedMps  = "gps_speed_mps"
+        case magUt        = "mag_ut"
+    }
+}
+
+extension SensorWindow {
+
+    /// Série 1 Hz sobre a grelha das leituras GPS (a mesma do computeScore):
+    /// para cada leitura GPS junta a pressão e a magnitude magnética com o
+    /// timestamp mais próximo. pressure/mag ficam nil se o sensor não tiver
+    /// leituras (colunas nullable em sensor_timeseries).
+    func toTimeseriesTicks() -> [RawTimeseriesTick] {
+        guard let firstTs = gpsReadings.first?.timestampMs else { return [] }
+        return gpsReadings.map { g in
+            RawTimeseriesTick(
+                elapsedS:     Int((g.timestampMs - firstTs) / 1000),
+                timestamp:    Date(timeIntervalSince1970: Double(g.timestampMs) / 1000).iso8601,
+                pressureHpa:  Self.nearestValue(pressureReadings, at: g.timestampMs,
+                                                time: { $0.timestampMs }, value: { Double($0.hPa) }),
+                gpsAccuracyM: Double(g.accuracyMeters),
+                gpsSpeedMps:  g.speedMps,
+                magUt:        Self.nearestValue(magneticReadings, at: g.timestampMs,
+                                                time: { $0.timestampMs }, value: { $0.magnitude })
+            )
+        }
+    }
+
+    /// Valor da amostra cujo timestamp está mais próximo de `targetMs`. nil se vazio.
+    private static func nearestValue<T>(
+        _ readings: [T],
+        at targetMs: Int64,
+        time:  (T) -> Int64,
+        value: (T) -> Double
+    ) -> Double? {
+        guard let nearest = readings.min(by: {
+            abs(time($0) - targetMs) < abs(time($1) - targetMs)
+        }) else { return nil }
+        return value(nearest)
+    }
+}
+
 // ── SensorDeltas ──────────────────────────────────────
 // Variação crua de cada sensor entre a leitura mais recente e a leitura
 // de há `overMs` atrás. Sem normalização nem pesos — só observação para

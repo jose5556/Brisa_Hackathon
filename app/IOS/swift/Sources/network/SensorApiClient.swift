@@ -87,6 +87,9 @@ struct FeedbackRequest: Encodable {
     let ml1Classification: String
     let finalDecision: String
     let feedback: FeedbackVerdict
+    // Série 1 Hz do buffer completo que gerou o payload — nil se já não
+    // estiver em memória (ex: app reiniciada entre a análise e o feedback).
+    let rawTimeseries: [RawTimeseriesTick]?
 
     enum CodingKeys: String, CodingKey {
         case payloadId = "payload_id"
@@ -94,6 +97,7 @@ struct FeedbackRequest: Encodable {
         case ml1Classification = "ml1_classification"
         case finalDecision = "final_decision"
         case feedback
+        case rawTimeseries = "raw_timeseries"
     }
 }
 
@@ -202,7 +206,8 @@ final class SensorApiClient {
         sessionId: String,
         ml1Classification: String,
         finalDecision: String,
-        feedback: FeedbackVerdict
+        feedback: FeedbackVerdict,
+        rawTimeseries: [RawTimeseriesTick]? = nil
     ) async throws {
 
         guard let url = URL(string: ServerConfig.baseURL + "feedback") else {
@@ -218,7 +223,8 @@ final class SensorApiClient {
                                    sessionId: sessionId,
                                    ml1Classification: ml1Classification,
                                    finalDecision: finalDecision,
-                                   feedback: feedback)
+                                   feedback: feedback,
+                                   rawTimeseries: rawTimeseries)
         do {
             request.httpBody = try encoder.encode(body)
         } catch {

@@ -29,7 +29,7 @@ if [[ $# -ge 1 && "$1" == "--all" ]]; then
 fi
 
 # 1.º argumento é o CSV se não começar por "-"; o resto são flags do runner.
-CSV="Tools/data/silo_auto.csv"
+CSV="Tools/data_sim/sim_superficie.csv"
 if [[ $ALL -eq 0 && $# -ge 1 && "${1:0:1}" != "-" ]]; then
     CSV="$1"
     shift
