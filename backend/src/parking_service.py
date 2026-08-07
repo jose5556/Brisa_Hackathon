@@ -512,11 +512,22 @@ def store_user_feedback(
     db: Session,
     session_id: str,
     payload_id: str,
+    ml1_classification: str,
+    final_decision: str,
     feedback: str,
     raw_timeseries: Optional[list[dict[str, Any]]] = None,
 ) -> dict[str, Any]:
 
     normalized_feedback = str(feedback).strip().lower()
+    normalized_ml1_classification = str(ml1_classification).strip()
+    normalized_final_decision = str(final_decision).strip().lower()
+
+    if not normalized_ml1_classification:
+        raise ValueError("Missing ml1_classification in feedback payload.")
+
+    if normalized_final_decision not in {"charge", "no_charge"}:
+        raise ValueError("Invalid final_decision. Expected 'charge' or 'no_charge'.")
+
     if normalized_feedback not in {"correct", "incorrect"}:
         raise ValueError("Invalid feedback. Expected 'correct' or 'incorrect'.")
 
@@ -587,6 +598,8 @@ def store_user_feedback(
                 label_confidence,
                 label_source,
                 model_was_correct,
+                ml1_classification,
+                final_decision,
                 created_at
             )
             VALUES (
@@ -596,6 +609,8 @@ def store_user_feedback(
                 :label_confidence,
                 :label_source,
                 :model_was_correct,
+                :ml1_classification,
+                CAST(:final_decision AS model_decision),
                 NOW()
             )
             RETURNING id::text
@@ -607,6 +622,8 @@ def store_user_feedback(
             "label_confidence": 1.0,
             "label_source": "user_confirm" if model_was_correct else "user_cancel",
             "model_was_correct": model_was_correct,
+            "ml1_classification": normalized_ml1_classification,
+            "final_decision": normalized_final_decision,
         },
     ).scalar_one()
 

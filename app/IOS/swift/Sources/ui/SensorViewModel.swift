@@ -29,6 +29,10 @@ final class SensorViewModel: ObservableObject {
     private let collector = SensorCollector()
     private let repository = SensorRepository()
     private var isCollecting = false
+    // Buffer bruto completo (até 180s) da última análise — enviado no
+    // /feedback como raw_timeseries (série 1 Hz); o backend grava em
+    // sensor_timeseries, ligado à sessão, para calibrar os pesos do score.
+    private var lastBuffer: SensorWindow? = nil
     private var liveTimer: Timer? = nil
     private var dataStartMs: Int64 = 0
     private var dataTimer: Timer? = nil
@@ -59,6 +63,7 @@ final class SensorViewModel: ObservableObject {
             defer { isCollecting = false }
 
             let buffer  = collector.getWindow(sinceMs: 0)   // buffer completo (até 180s)
+            lastBuffer  = buffer
             let scoring = buffer.computeScore()
             lastScore = scoring
 
@@ -97,7 +102,8 @@ final class SensorViewModel: ObservableObject {
                     sessionId: response.sessionId,
                     ml1Classification: response.ml1Classification,
                     finalDecision: response.finalDecision,
-                    feedback: verdict
+                    feedback: verdict,
+                    rawTimeseries: lastBuffer?.toTimeseriesTicks()
                 )
                 feedbackState = .sent(verdict)
             } catch {
