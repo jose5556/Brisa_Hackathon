@@ -34,6 +34,12 @@ struct ParsedCsv {
     let rows: Int
 }
 
+// Os CSVs exportados pela tela DATA não incluem coordenadas. Para permitir
+// testes end-to-end da API, usa-se uma localização fixa no Porto.
+let defaultPortoLatitude = 41.14961
+let defaultPortoLongitude = -8.61099
+let defaultPortoCity = "Porto"
+
 // Constrói uma leitura magnética a partir da magnitude escalar do CSV.
 // MagneticReading calcula |v| = √(x²+y²+z²); pondo x = mag e y=z=0 → |v| = mag.
 func magReadingFromMagnitude(_ mag: Double, timestampMs: Int64) -> MagneticReading {
@@ -87,7 +93,7 @@ func parseCsv(_ path: String) -> ParsedCsv? {
         let hasSignal = acc > 0 && acc < 100
 
         gps.append(GpsReading(
-            latitude: 0, longitude: 0,
+            latitude: defaultPortoLatitude, longitude: defaultPortoLongitude,
             accuracyMeters: Float(acc), altitudeMeters: 0,
             speedMps: speed, hasSignal: hasSignal, timestampMs: t
         ))
@@ -186,17 +192,24 @@ struct ScoreCsvRunnerMain {
             }
             // O backend exige `city` (no telemóvel vem do reverse-geocoding do
             // CLGeocoder); nos CSVs não há cidade, por isso usa-se "Porto".
-            if payload.city == nil { payload.city = "Porto" }
+            if payload.city == nil { payload.city = defaultPortoCity }
 
             print("\n── Payload enviado à API ──")
+            print(String(format: "  latitude             : %.5f", payload.latitude))
+            print(String(format: "  longitude            : %.5f", payload.longitude))
+            print("  city                 : \(payload.city ?? defaultPortoCity)")
             print(String(format: "  gnss_accuracy_mean   : %.2f m", payload.gpsAccuracyMean))
             print(String(format: "  gnss_accuracy_delta  : %.2f m", payload.gpsAccuracyDelta))
             print(String(format: "  gnss_lost_ratio      : %.2f", payload.gpsLostRatio))
             print(String(format: "  pressure_hpa (final) : %.2f hPa", payload.pressureHpa))
             print(String(format: "  pressure_delta       : %.3f hPa", payload.pressureDeltaHpa))
+            print(String(format: "  pressure_variance    : %.6f", payload.pressureVariance))
             print(String(format: "  altitude_delta       : %.2f m", payload.altitudeChangeM))
             print(String(format: "  magnetic_field_mean  : %.2f µT", payload.magneticFieldMean))
             print(String(format: "  magnetic_field_delta : %.2f µT", payload.magneticFieldDelta))
+            print(String(format: "  magnetic_variance    : %.6f µT²", payload.magneticFieldVariance))
+            print("  window_start_at     : \(payload.windowStartAt)")
+            print("  window_end_at       : \(payload.windowEndAt)")
             print(String(format: "  window_duration_s    : %.0f s", payload.windowDurationS))
 
             print("\n── Resposta do modelo (POST /parking-events/analyze) ──")
